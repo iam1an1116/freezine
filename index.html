@@ -75,11 +75,16 @@
           <button id="nextBtn" class="circle-btn">下一页</button>
         </div>
 
-        <div class="toolbar">
+        <div class="toolbar toolbar-top">
           <button id="addTextBtn" class="circle-btn">添加文字</button>
           <button id="addImageBtn" class="circle-btn">添加图片</button>
           <button id="deleteBtn" class="circle-btn">删除选中</button>
           <button id="clearPageBtn" class="circle-btn danger">清空本页</button>
+          <button id="imgScaleDownBtn" class="circle-btn">图片缩小</button>
+          <button id="imgScaleUpBtn" class="circle-btn">图片放大</button>
+        </div>
+
+        <div class="toolbar toolbar-bottom">
           <div class="font-control" aria-label="文字大小">
             <span class="font-label">文字大小</span>
             <input id="fontScaleRange" type="range" min="0.6" max="2.2" step="0.05" value="1" />
@@ -101,6 +106,7 @@
             <span class="control-label-inline">背景</span>
             <input id="bgColorInput" class="color-input" type="color" value="#ffffff" />
           </label>
+          <div id="imgSizeInfo" class="control-inline img-size-info hidden">图片尺寸: -</div>
           <input id="imageFileInput" type="file" accept="image/*" hidden />
         </div>
 

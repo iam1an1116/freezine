@@ -28,6 +28,9 @@
   const addImageBtn = document.getElementById("addImageBtn");
   const deleteBtn = document.getElementById("deleteBtn");
   const clearPageBtn = document.getElementById("clearPageBtn");
+  const imgScaleDownBtn = document.getElementById("imgScaleDownBtn");
+  const imgScaleUpBtn = document.getElementById("imgScaleUpBtn");
+  const imgSizeInfo = document.getElementById("imgSizeInfo");
   const imageFileInput = document.getElementById("imageFileInput");
 
   const fontScaleRange = document.getElementById("fontScaleRange");
@@ -180,6 +183,7 @@
   function clearAlignmentGuides() {
     alignmentGuides.v = [];
     alignmentGuides.h = [];
+    updateImageSizeInfo();
     if (canvas) canvas.requestRenderAll();
   }
 
@@ -211,6 +215,54 @@
     });
 
     ctx.restore();
+  }
+
+  function drawRuleOfThirdsGuides(ctxOverride) {
+    if (!canvas) return;
+    const active = canvas.getActiveObject();
+    if (!active) return;
+    if (!(active.type === "image" || active.type === "textbox")) return;
+
+    const ctx = ctxOverride || canvas.getContext("2d");
+    const w = canvas.getWidth();
+    const h = canvas.getHeight();
+    const x1 = Math.round(w / 3) + 0.5;
+    const x2 = Math.round((w * 2) / 3) + 0.5;
+    const y1 = Math.round(h / 3) + 0.5;
+    const y2 = Math.round((h * 2) / 3) + 0.5;
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(15, 23, 42, .22)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+
+    [x1, x2].forEach((x) => {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    });
+    [y1, y2].forEach((y) => {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function updateImageSizeInfo() {
+    if (!imgSizeInfo || !canvas) return;
+    const obj = canvas.getActiveObject();
+    if (!obj || obj.type !== "image") {
+      imgSizeInfo.classList.add("hidden");
+      imgSizeInfo.textContent = "图片尺寸: -";
+      return;
+    }
+    const w = Math.max(1, Math.round((obj.width || 0) * (obj.scaleX || 1)));
+    const h = Math.max(1, Math.round((obj.height || 0) * (obj.scaleY || 1)));
+    imgSizeInfo.classList.remove("hidden");
+    imgSizeInfo.textContent = `图片尺寸: ${w} x ${h}px`;
   }
 
   function applyAlignmentSnapping(obj, bestDx, bestDy) {
@@ -360,11 +412,16 @@
       canvas.on("after:render", (opt) => {
         const ctx = opt && opt.ctx ? opt.ctx : null;
         drawAlignmentGuides(ctx || undefined);
+        drawRuleOfThirdsGuides(ctx || undefined);
       });
       canvas.on("object:moving", handleObjectMoving);
       canvas.on("object:scaling", handleObjectMoving);
       canvas.on("mouse:up", clearAlignmentGuides);
       canvas.on("selection:cleared", clearAlignmentGuides);
+      canvas.on("selection:created", updateImageSizeInfo);
+      canvas.on("selection:updated", updateImageSizeInfo);
+      canvas.on("object:scaling", updateImageSizeInfo);
+      canvas.on("object:modified", updateImageSizeInfo);
     }
     // Force-sync both Fabric internal size and DOM CSS size.
     canvas.setDimensions({ width: wPx, height: hPx }, { backstoreOnly: false });
@@ -448,6 +505,8 @@
     addImageBtn.disabled = !hasPages;
     deleteBtn.disabled = !hasPages;
     clearPageBtn.disabled = !hasPages;
+    imgScaleDownBtn.disabled = !hasPages;
+    imgScaleUpBtn.disabled = !hasPages;
     finishBtn.disabled = !hasPages || exportInProgress;
   }
 
@@ -1200,6 +1259,8 @@
     addImageBtn.disabled = true;
     deleteBtn.disabled = true;
     clearPageBtn.disabled = true;
+    imgScaleDownBtn.disabled = true;
+    imgScaleUpBtn.disabled = true;
     finishBtn.disabled = true;
 
     setupPanel.classList.add("hidden");
@@ -1363,6 +1424,23 @@
     canvas.remove(obj);
     canvas.requestRenderAll();
   });
+
+  function scaleSelectedImage(multiplier) {
+    if (!draft) return;
+    const obj = canvas.getActiveObject();
+    if (!obj || obj.type !== "image") return;
+    const nextX = Math.max(0.05, (obj.scaleX || 1) * multiplier);
+    const nextY = Math.max(0.05, (obj.scaleY || 1) * multiplier);
+    obj.scaleX = nextX;
+    obj.scaleY = nextY;
+    obj.setCoords();
+    canvas.requestRenderAll();
+    updateImageSizeInfo();
+    saveCurrentPageNow();
+  }
+
+  imgScaleDownBtn?.addEventListener("click", () => scaleSelectedImage(0.92));
+  imgScaleUpBtn?.addEventListener("click", () => scaleSelectedImage(1.08));
 
   clearPageBtn.addEventListener("click", async () => {
     if (!draft) return;
