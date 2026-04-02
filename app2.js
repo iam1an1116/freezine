@@ -16,6 +16,7 @@
   const editorPanel = document.getElementById("editorPanel");
 
   const pageCountInput = document.getElementById("pageCountInput");
+  const bookTitleInput = document.getElementById("bookTitleInput");
   const ratioRadios = Array.from(document.querySelectorAll('input[name="ratio"]'));
   const startBtn = document.getElementById("startBtn");
 
@@ -758,6 +759,7 @@
     if (!z || !z.id) return;
     const meta = {
       id: z.id,
+      title: z.title || "未命名",
       createdAt: z.createdAt,
       pageCount: z.pageCount,
       aspect: z.aspect,
@@ -780,6 +782,7 @@
     if (!z || !z.id) return;
     const payload = {
       id: z.id,
+      title: z.title || "未命名",
       createdAt: z.createdAt,
       pageCount: z.pageCount,
       aspect: z.aspect,
@@ -818,7 +821,8 @@
 
   function randomIconPlacement(iconEl) {
     const wallRect = iconsWall.getBoundingClientRect();
-    const btnSize = HOME_ICON_SIZE;
+    const btnW = iconEl.offsetWidth || 110;
+    const btnH = iconEl.offsetHeight || 126;
     const padding = 16;
 
     const cx = wallRect.width / 2;
@@ -828,10 +832,10 @@
     let x = 0;
     let y = 0;
     for (let attempt = 0; attempt < 60; attempt++) {
-      x = padding + Math.random() * (Math.max(0, wallRect.width - btnSize - padding * 2));
-      y = padding + Math.random() * (Math.max(0, wallRect.height - btnSize - padding * 2));
-      const px = x + btnSize / 2 - cx;
-      const py = y + btnSize / 2 - cy;
+      x = padding + Math.random() * (Math.max(0, wallRect.width - btnW - padding * 2));
+      y = padding + Math.random() * (Math.max(0, wallRect.height - btnH - padding * 2));
+      const px = x + btnW / 2 - cx;
+      const py = y + btnH / 2 - cy;
       if (px * px + py * py > excludeR * excludeR) break;
     }
 
@@ -840,10 +844,13 @@
   }
 
   function addIconToHome(zine) {
-    // Use a div to avoid adding extra "buttons" on the home page.
+    // Use wrapper + icon + label.
+    const item = document.createElement("div");
+    item.className = "zine-item";
+    item.dataset.zineId = zine.id;
+
     const btn = document.createElement("div");
     btn.className = "zine-icon-btn";
-    btn.dataset.zineId = zine.id;
     btn.setAttribute("role", "button");
     btn.setAttribute("tabindex", "0");
     btn.setAttribute("aria-label", "打开电子书阅览");
@@ -853,6 +860,12 @@
     img.src = zine.iconDataURL;
 
     btn.appendChild(img);
+    item.appendChild(btn);
+
+    const name = document.createElement("div");
+    name.className = "zine-name";
+    name.textContent = zine.title || "未命名";
+    item.appendChild(name);
 
     btn.addEventListener("click", () => {
       // Open a landing page in a new window (cover + "阅览" button).
@@ -863,8 +876,8 @@
         window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
       }
     });
-    iconsWall.appendChild(btn);
-    randomIconPlacement(btn);
+    iconsWall.appendChild(item);
+    randomIconPlacement(item);
   }
 
   function clearHomeIcons() {
@@ -947,12 +960,8 @@
 
     // Mode & single index init
     viewerMode = localStorage.getItem("free-zine:viewerMode") || "seamless";
-    if (viewerMode === "single") {
-      const storedIndex = Number(localStorage.getItem("free-zine:viewerSingleIndex") || "0");
-      viewerSinglePageIndex = Number.isFinite(storedIndex)
-        ? Math.max(0, Math.min(zine.pageCount - 1, Math.round(storedIndex)))
-        : 0;
-    }
+    viewerSinglePageIndex = 0;
+    localStorage.setItem("free-zine:viewerSingleIndex", "0");
 
     // Sync mode UI
     viewerModeSeamlessBtn?.classList.toggle("primary", viewerMode === "seamless");
@@ -1207,6 +1216,7 @@
           id: crypto.randomUUID
             ? crypto.randomUUID()
             : String(Date.now()) + Math.random().toString(16).slice(2),
+          title: (bookTitleInput && bookTitleInput.value ? bookTitleInput.value.trim() : "") || "未命名",
           createdAt: Date.now(),
           pageCount: count,
           aspect: { w: aspect.w, h: aspect.h, label: aspect.label },
