@@ -188,7 +188,7 @@ def upload_image():
     supabase.storage.from_(BUCKET).upload(
       path=key,
       file=raw,
-      file_options={"content-type": mime, "upsert": True},
+      file_options={"content-type": str(mime), "cache-control": "3600"},
     )
 
     public_url = supabase.storage.from_(BUCKET).get_public_url(key)
