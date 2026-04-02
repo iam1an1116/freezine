@@ -2,6 +2,7 @@
   const coverImg = document.getElementById("bookCoverImg");
   const readBtn = document.getElementById("bookReadBtn");
   const hint = document.getElementById("bookHint");
+  const META_PREFIX = "free-zine:meta:";
 
   const hash = window.location.hash || "";
   const m = hash.match(/zine=([^&]+)/);
@@ -25,6 +26,16 @@
       }
       hint.textContent = "";
     } catch (e) {
+      // Fallback: try cached meta
+      try {
+        const raw = localStorage.getItem(`${META_PREFIX}${zineId}`);
+        const meta = raw ? JSON.parse(raw) : null;
+        if (meta && meta.iconDataURL) {
+          coverImg.src = meta.iconDataURL;
+          hint.textContent = "";
+          return;
+        }
+      } catch (_) {}
       hint.textContent = `无法加载封面：${String(e?.message || e)}`;
     }
   }

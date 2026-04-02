@@ -563,9 +563,52 @@
     return compressImageBlobToDataURL(blob);
   }
 
-  function addImageFromDataURL(dataURL) {
+  async function shrinkDataURLForUpload(dataURL, maxBytes) {
+    const limit = Math.max(300 * 1024, maxBytes || 2 * 1024 * 1024);
+    let cur = dataURL;
+    if (estimateDataURLBytes(cur) <= limit) return cur;
+
+    const img = await dataURLToImage(cur);
+    let scale = 0.78;
+    let quality = 0.82;
+    let best = cur;
+
+    for (let i = 0; i < 10; i++) {
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      const out = c.toDataURL("image/jpeg", quality);
+      best = out;
+      if (estimateDataURLBytes(out) <= limit) return out;
+      scale = Math.max(0.42, scale - 0.06);
+      quality = Math.max(0.5, quality - 0.06);
+    }
+    return best;
+  }
+
+  async function uploadImageDataURL(dataURL, fileName) {
+    // Keep request payload small for serverless limits.
+    const shrunken = await shrinkDataURLForUpload(dataURL, 2 * 1024 * 1024);
+    const zid = draft && draft.id ? draft.id : "temp";
+    const res = await apiJSON("/api/upload-image", {
+      method: "POST",
+      body: JSON.stringify({
+        zineId: zid,
+        fileName: fileName || `img-${Date.now()}.jpg`,
+        dataUrl: shrunken,
+      }),
+    });
+    if (!res || !res.publicUrl) throw new Error("图片上传失败：未返回 URL");
+    return res.publicUrl;
+  }
+
+  function addImageFromURL(imageURL) {
     fabric.Image.fromURL(
-      dataURL,
+      imageURL,
       (img) => {
         const maxW = canvas.getWidth() * 0.72;
         const maxH = canvas.getHeight() * 0.72;
@@ -603,9 +646,10 @@
       if (!blob) return;
       try {
         const dataURL = await imageBlobToDataURL(blob);
-        addImageFromDataURL(dataURL);
-      } catch (_) {
-        setStatus("粘贴图片失败：浏览器可能不允许剪贴板读取。");
+        const url = await uploadImageDataURL(dataURL, `paste-${Date.now()}.jpg`);
+        addImageFromURL(url);
+      } catch (e) {
+        setStatus(`粘贴图片失败：${String(e?.message || e)}`);
       }
       return;
     }
@@ -675,6 +719,7 @@
   // ---------- Home Icons / Storage ----------
   const STORAGE_PREFIX = "free-zine:";
   const STORAGE_INDEX_KEY = `${STORAGE_PREFIX}index`;
+  const STORAGE_META_PREFIX = `${STORAGE_PREFIX}meta:`;
   let zines = []; // in-memory (includes pageStates)
   let currentViewingZineId = null;
 
@@ -709,6 +754,28 @@
     return arr.filter((id) => typeof id === "string" && id.length > 0);
   }
 
+  function cacheZineMeta(z) {
+    if (!z || !z.id) return;
+    const meta = {
+      id: z.id,
+      createdAt: z.createdAt,
+      pageCount: z.pageCount,
+      aspect: z.aspect,
+      iconDataURL: z.iconDataURL || null,
+    };
+    try {
+      localStorage.setItem(`${STORAGE_META_PREFIX}${z.id}`, JSON.stringify(meta));
+    } catch (_) {}
+  }
+
+  function readCachedMeta(id) {
+    const raw = localStorage.getItem(`${STORAGE_META_PREFIX}${id}`);
+    const meta = safeParseJSON(raw);
+    if (!meta || typeof meta !== "object") return null;
+    if (!meta.id) meta.id = id;
+    return meta;
+  }
+
   async function persistZineToStorage(z) {
     if (!z || !z.id) return;
     const payload = {
@@ -728,6 +795,8 @@
       method: "PUT",
       body: JSON.stringify(payload),
     });
+
+    cacheZineMeta(payload);
 
     const ids = readStoredZineIds();
     if (!ids.includes(z.id)) {
@@ -805,11 +874,14 @@
   async function restoreHomeIconsFromStorage() {
     if (!iconsWall) return;
     if (currentViewingZineId) return;
-    clearHomeIcons();
-
     try {
       const data = await apiJSON("/api/zines", { method: "GET" });
       const items = (data && data.items) || [];
+
+      // Only clear & re-render after we have data (prevents "flash then disappear").
+      clearHomeIcons();
+      zines = [];
+
       for (let i = 0; i < items.length; i++) {
         if (currentViewingZineId) return;
         const z = items[i];
@@ -818,7 +890,32 @@
         if (z.iconDataURL && typeof z.iconDataURL === "string") addIconToHome(z);
         if (zines.length >= 60) break;
       }
+
+      // If server returns empty (or iconDataURL missing), fallback to cached metas.
+      if (iconsWall.childElementCount === 0) {
+        const ids = readStoredZineIds();
+        for (let i = 0; i < ids.length; i++) {
+          const meta = readCachedMeta(ids[i]);
+          if (!meta || !meta.iconDataURL) continue;
+          if (!zines.find((x) => x.id === meta.id)) zines.push(meta);
+          addIconToHome(meta);
+          if (zines.length >= 60) break;
+        }
+      }
     } catch (e) {
+      // On API failure, keep existing icons and show cached ones.
+      const ids = readStoredZineIds();
+      if (iconsWall.childElementCount === 0) {
+        clearHomeIcons();
+        zines = [];
+        for (let i = 0; i < ids.length; i++) {
+          const meta = readCachedMeta(ids[i]);
+          if (!meta || !meta.iconDataURL) continue;
+          if (!zines.find((x) => x.id === meta.id)) zines.push(meta);
+          addIconToHome(meta);
+          if (zines.length >= 60) break;
+        }
+      }
       showRuntimeError(e);
     }
   }
@@ -828,7 +925,11 @@
     let zine = zines.find((z) => z.id === zineId);
     if (!zine) {
       const stored = await loadZineFromStorage(zineId);
-      if (!stored) return;
+      if (!stored) {
+        setViewerStatus("无法加载书籍（后端无数据或网络错误）");
+        showHome();
+        return;
+      }
       zine = stored;
       zines.push(zine);
     }
@@ -1159,15 +1260,18 @@
         const iconDataURL = await generateBookIcon(draft);
         draft.iconDataURL = iconDataURL;
 
-        try {
-          await persistZineToStorage(draft);
-        } catch (e) {
-          // localStorage 可能因为大小/权限失败，仍允许继续使用当前会话
-          console.warn("保存到本地失败：", e);
-        }
+        // IMPORTANT: server persistence must succeed before we show it on home,
+        // otherwise it becomes a "ghost" icon that flashes then disappears.
+        await persistZineToStorage(draft);
 
         // Add to home & keep in-memory for viewing.
-        zines.push(draft);
+        zines.push({
+          id: draft.id,
+          createdAt: draft.createdAt,
+          pageCount: draft.pageCount,
+          aspect: draft.aspect,
+          iconDataURL: draft.iconDataURL,
+        });
         addIconToHome(draft);
 
         setStatus("");
@@ -1180,7 +1284,7 @@
         showHome();
       } catch (e) {
         console.error(e);
-        setStatus("封装失败，请重试。");
+        setStatus("保存失败：图片书在 Vercel/Serverless 可能因体积过大被拒绝。请减小图片或改用可持久存储的后端。");
         exportInProgress = false;
         updateEditorButtons();
       }
@@ -1232,8 +1336,13 @@
     if (!draft) return;
     const file = imageFileInput.files && imageFileInput.files[0];
     if (!file) return;
-    const dataURL = await imageBlobToDataURL(file);
-    addImageFromDataURL(dataURL);
+    try {
+      const dataURL = await imageBlobToDataURL(file);
+      const url = await uploadImageDataURL(dataURL, file.name || `upload-${Date.now()}.jpg`);
+      addImageFromURL(url);
+    } catch (e) {
+      setStatus(`上传图片失败：${String(e?.message || e)}`);
+    }
     imageFileInput.value = "";
   });
 
@@ -1500,7 +1609,6 @@
   resetDraft();
   editorPanel.classList.add("hidden");
   setupPanel.classList.remove("hidden");
-  showHome();
   syncLoginEntryUI();
 
   // Open a specific ZINE from share link.
@@ -1512,7 +1620,9 @@
     if (stored) {
       zines = [stored];
       openViewer(zineId).catch(() => {});
+      return;
     }
   }
+  showHome();
 })();
 
