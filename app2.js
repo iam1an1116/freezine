@@ -1,0 +1,1518 @@
+(async function () {
+  if (!window.fabric) {
+    alert("未加载到 Fabric.js，请刷新页面后再试。");
+    return;
+  }
+
+  // ---------- DOM ----------
+  const homeView = document.getElementById("homeView");
+  const iconsWall = document.getElementById("iconsWall");
+  const homeEnterBtn = document.getElementById("homeEnterBtn");
+
+  const designerView = document.getElementById("designerView");
+  const backHomeBtn = document.getElementById("backHomeBtn");
+
+  const setupPanel = document.getElementById("setupPanel");
+  const editorPanel = document.getElementById("editorPanel");
+
+  const pageCountInput = document.getElementById("pageCountInput");
+  const ratioRadios = Array.from(document.querySelectorAll('input[name="ratio"]'));
+  const startBtn = document.getElementById("startBtn");
+
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const pageIndexText = document.getElementById("pageIndexText");
+
+  const addTextBtn = document.getElementById("addTextBtn");
+  const addImageBtn = document.getElementById("addImageBtn");
+  const deleteBtn = document.getElementById("deleteBtn");
+  const clearPageBtn = document.getElementById("clearPageBtn");
+  const imageFileInput = document.getElementById("imageFileInput");
+
+  const fontScaleRange = document.getElementById("fontScaleRange");
+  const fontScaleText = document.getElementById("fontScaleText");
+
+  const fontFamilySelect = document.getElementById("fontFamilySelect");
+  const bgColorInput = document.getElementById("bgColorInput");
+
+  const finishBtn = document.getElementById("finishBtn");
+  const statusText = document.getElementById("statusText");
+
+  const viewerOverlay = document.getElementById("viewerOverlay");
+  const viewerCloseBtn = document.getElementById("viewerCloseBtn");
+  const viewerTitle = document.getElementById("viewerTitle");
+  const viewerStatus = document.getElementById("viewerStatus");
+  const viewerRail = document.getElementById("viewerRail");
+  const viewerShareBtn = document.getElementById("viewerShareBtn");
+
+  const pageWrap = document.getElementById("pageWrap");
+  const canvasEl = document.getElementById("zineCanvas");
+
+  // Surface runtime errors in UI (instead of failing silently).
+  const globalErrorBar = document.getElementById("globalErrorBar");
+  function showRuntimeError(err) {
+    try {
+      const msg = err && err.message ? err.message : String(err);
+      if (statusText) statusText.textContent = `错误：${msg}`;
+      if (globalErrorBar) {
+        globalErrorBar.textContent = `错误：${msg}`;
+        globalErrorBar.classList.remove("hidden");
+      }
+    } catch (_) {}
+  }
+  window.addEventListener("error", (e) => {
+    showRuntimeError(e.error || e.message);
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    showRuntimeError(e.reason || e.message);
+  });
+
+  // ---------- State ----------
+  const RATIOS = {
+    "1:1": { w: 1, h: 1, label: "1:1" },
+    "5:4": { w: 5, h: 4, label: "5:4" },
+    "3:2": { w: 3, h: 2, label: "3:2" },
+    "4:5": { w: 4, h: 5, label: "4:5" },
+    "2:3": { w: 2, h: 3, label: "2:3" },
+  };
+
+  const MIN_CANVAS_SIDE = 160; // avoid zero-size canvas
+  const ICON_CANVAS_SIZE = 256;
+  const HOME_ICON_SIZE = 96; // CSS size
+
+  let canvas = null;
+  let draft = null; // current book draft
+  let currentPageIndex = 0;
+  let pageCount = 0;
+  let isLoadingPage = false;
+  let exportInProgress = false;
+  let saveTimer = null;
+  let alignmentGuides = { v: [], h: [] };
+
+  // Viewer modes
+  let viewerMode = localStorage.getItem("free-zine:viewerMode") || "seamless"; // 'seamless' | 'single'
+  let viewerSinglePageIndex = 0;
+
+  // Admin (client-side only; not secure)
+  const ADMIN_USER = "1an";
+  const ADMIN_PASS = "Freezine2006";
+  const ADMIN_FLAG_KEY = "free-zine:adminAuthed";
+  function isAdminAuthed() {
+    return localStorage.getItem(ADMIN_FLAG_KEY) === "1";
+  }
+
+  function syncLoginEntryUI() {
+    if (!loginEntryBtn) return;
+    loginEntryBtn.classList.toggle("authed", isAdminAuthed());
+  }
+
+  // Viewer controls
+  const viewerModeSeamlessBtn = document.getElementById("viewerModeSeamlessBtn");
+  const viewerModeSingleBtn = document.getElementById("viewerModeSingleBtn");
+  const viewerPrevPageBtn = document.getElementById("viewerPrevPageBtn");
+  const viewerNextPageBtn = document.getElementById("viewerNextPageBtn");
+  const viewerDeleteBtn = document.getElementById("viewerDeleteBtn");
+
+  // Admin login UI
+  const loginEntryBtn = document.getElementById("loginEntryBtn");
+  const loginModal = document.getElementById("loginModal");
+  const loginUserInput = document.getElementById("loginUserInput");
+  const loginPassInput = document.getElementById("loginPassInput");
+  const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+  const loginCancelBtn = document.getElementById("loginCancelBtn");
+
+  // ---------- Utilities ----------
+  function setStatus(msg) {
+    statusText.textContent = msg || "";
+  }
+
+  function setViewerStatus(msg) {
+    viewerStatus.textContent = msg || "";
+  }
+
+  function clampInt(n, min, max) {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return min;
+    return Math.max(min, Math.min(max, Math.round(x)));
+  }
+
+  function getSelectedRatio() {
+    const checked = ratioRadios.find((r) => r.checked);
+    const val = (checked && checked.value) || "1:1";
+    return RATIOS[val] || RATIOS["1:1"];
+  }
+
+  function calcPageDims(aspect) {
+    // aspect is width:height. Fit page canvas into the editor container.
+    let stageW = pageWrap.clientWidth;
+    let stageH = pageWrap.clientHeight;
+    if (!Number.isFinite(stageW) || stageW <= 0) stageW = 720;
+    if (!Number.isFinite(stageH) || stageH <= 0) stageH = 600;
+
+    const ratio = aspect.w / aspect.h;
+
+    // Fit by whichever constraint is tighter.
+    let wPx = stageW;
+    let hPx = Math.round(wPx / ratio);
+    if (hPx > stageH) {
+      hPx = stageH;
+      wPx = Math.round(hPx * ratio);
+    }
+
+    wPx = Math.max(MIN_CANVAS_SIDE, wPx);
+    hPx = Math.max(MIN_CANVAS_SIDE, hPx);
+
+    // Final clamp: never exceed stage dims (prevents container clipping).
+    if (wPx > stageW) {
+      wPx = stageW;
+      hPx = Math.round(wPx / ratio);
+    }
+    if (hPx > stageH) {
+      hPx = stageH;
+      wPx = Math.round(hPx * ratio);
+    }
+
+    return { wPx: Math.max(1, wPx), hPx: Math.max(1, hPx) };
+  }
+
+  // ---------- Alignment Guides ----------
+  function clearAlignmentGuides() {
+    alignmentGuides.v = [];
+    alignmentGuides.h = [];
+    if (canvas) canvas.requestRenderAll();
+  }
+
+  function drawAlignmentGuides(ctxOverride) {
+    if (!canvas) return;
+    const xs = alignmentGuides && Array.isArray(alignmentGuides.v) ? alignmentGuides.v : [];
+    const ys = alignmentGuides && Array.isArray(alignmentGuides.h) ? alignmentGuides.h : [];
+    if (!xs.length && !ys.length) return;
+
+    const ctx = ctxOverride || canvas.getContext("2d");
+    ctx.save();
+    ctx.strokeStyle = "rgba(79, 70, 229, .75)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+
+    xs.forEach((x) => {
+      const px = Math.round(x) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, canvas.getHeight());
+      ctx.stroke();
+    });
+    ys.forEach((y) => {
+      const py = Math.round(y) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(canvas.getWidth(), py);
+      ctx.stroke();
+    });
+
+    ctx.restore();
+  }
+
+  function applyAlignmentSnapping(obj, bestDx, bestDy) {
+    if (!obj) return;
+    if (bestDx) obj.left += bestDx;
+    if (bestDy) obj.top += bestDy;
+    obj.setCoords();
+  }
+
+  function handleObjectMoving(opt) {
+    if (!opt || !opt.target) return;
+    const obj = opt.target;
+    if (!obj) return;
+
+    // Don't align against invisible/guide objects.
+    if (obj.excludeFromExport) return;
+
+    const threshold = 10; // px in canvas coordinates (for better image snapping)
+
+    const r1 = obj.getBoundingRect(true, true);
+    const moving = {
+      left: r1.left,
+      right: r1.left + r1.width,
+      top: r1.top,
+      bottom: r1.top + r1.height,
+      cx: r1.left + r1.width / 2,
+      cy: r1.top + r1.height / 2,
+    };
+
+    let bestAbsDx = threshold + 1;
+    let bestDx = 0;
+    let bestAbsDy = threshold + 1;
+    let bestDy = 0;
+
+    const xGuides = [];
+    const yGuides = [];
+
+    const all = canvas.getObjects();
+    for (let i = 0; i < all.length; i++) {
+      const other = all[i];
+      if (other === obj) continue;
+      if (!other) continue;
+      if (other.excludeFromExport) continue;
+
+      const r2 = other.getBoundingRect(true, true);
+      const cand = {
+        leftDx: r2.left - moving.left,
+        centerDx: r2.left + r2.width / 2 - moving.cx,
+        rightDx: r2.left + r2.width - moving.right,
+        topDy: r2.top - moving.top,
+        centerDy: r2.top + r2.height / 2 - moving.cy,
+        bottomDy: r2.top + r2.height - moving.bottom,
+        leftX: r2.left,
+        centerX: r2.left + r2.width / 2,
+        rightX: r2.left + r2.width,
+        topY: r2.top,
+        centerY: r2.top + r2.height / 2,
+        bottomY: r2.top + r2.height,
+      };
+
+      const absLeftDx = Math.abs(cand.leftDx);
+      if (absLeftDx <= threshold) {
+        xGuides.push(cand.leftX);
+        if (absLeftDx < bestAbsDx) {
+          bestAbsDx = absLeftDx;
+          bestDx = cand.leftDx;
+        }
+      }
+      const absCenterDx = Math.abs(cand.centerDx);
+      if (absCenterDx <= threshold) {
+        xGuides.push(cand.centerX);
+        if (absCenterDx < bestAbsDx) {
+          bestAbsDx = absCenterDx;
+          bestDx = cand.centerDx;
+        }
+      }
+      const absRightDx = Math.abs(cand.rightDx);
+      if (absRightDx <= threshold) {
+        xGuides.push(cand.rightX);
+        if (absRightDx < bestAbsDx) {
+          bestAbsDx = absRightDx;
+          bestDx = cand.rightDx;
+        }
+      }
+
+      const absTopDy = Math.abs(cand.topDy);
+      if (absTopDy <= threshold) {
+        yGuides.push(cand.topY);
+        if (absTopDy < bestAbsDy) {
+          bestAbsDy = absTopDy;
+          bestDy = cand.topDy;
+        }
+      }
+      const absCenterDy = Math.abs(cand.centerDy);
+      if (absCenterDy <= threshold) {
+        yGuides.push(cand.centerY);
+        if (absCenterDy < bestAbsDy) {
+          bestAbsDy = absCenterDy;
+          bestDy = cand.centerDy;
+        }
+      }
+      const absBottomDy = Math.abs(cand.bottomDy);
+      if (absBottomDy <= threshold) {
+        yGuides.push(cand.bottomY);
+        if (absBottomDy < bestAbsDy) {
+          bestAbsDy = absBottomDy;
+          bestDy = cand.bottomDy;
+        }
+      }
+    }
+
+    alignmentGuides.v = Array.from(new Set(xGuides.map((x) => Math.round(x))));
+    alignmentGuides.h = Array.from(new Set(yGuides.map((y) => Math.round(y))));
+
+    applyAlignmentSnapping(obj, bestDx, bestDy);
+    canvas.requestRenderAll();
+  }
+
+  function getFontScale() {
+    if (!fontScaleRange) return 1;
+    const v = Number(fontScaleRange.value);
+    return Number.isFinite(v) ? v : 1;
+  }
+
+  function debounceSave() {
+    if (!draft || exportInProgress) return;
+    if (isLoadingPage) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (!draft) return;
+      draft.pageStates[currentPageIndex] = canvas.toJSON();
+    }, 200);
+  }
+
+  function ensureMainCanvas(wPx, hPx) {
+    if (!canvas) {
+      canvas = new fabric.Canvas(canvasEl, {
+        preserveObjectStacking: true,
+        selection: true,
+        backgroundColor: "#ffffff",
+      });
+      canvas.on("object:added", debounceSave);
+      canvas.on("object:modified", debounceSave);
+      canvas.on("object:removed", debounceSave);
+
+      // Alignment guides: draw in the canvas render pipeline.
+      canvas.on("after:render", (opt) => {
+        const ctx = opt && opt.ctx ? opt.ctx : null;
+        drawAlignmentGuides(ctx || undefined);
+      });
+      canvas.on("object:moving", handleObjectMoving);
+      canvas.on("object:scaling", handleObjectMoving);
+      canvas.on("mouse:up", clearAlignmentGuides);
+      canvas.on("selection:cleared", clearAlignmentGuides);
+    }
+    // Force-sync both Fabric internal size and DOM CSS size.
+    canvas.setDimensions({ width: wPx, height: hPx }, { backstoreOnly: false });
+    canvas.setBackgroundColor("#ffffff");
+    canvasEl.style.width = `${wPx}px`;
+    canvasEl.style.height = `${hPx}px`;
+    canvas.calcOffset();
+    canvas.requestRenderAll();
+    canvas.renderAll();
+  }
+
+  async function loadPage(index) {
+    if (!draft) return;
+    if (index < 0 || index >= pageCount) return;
+    currentPageIndex = index;
+    pageIndexText.textContent = `第 ${currentPageIndex + 1} / ${pageCount} 页`;
+
+    isLoadingPage = true;
+    canvas.discardActiveObject();
+    canvas.clear();
+    canvas.setBackgroundColor(draft.defaultBgColor || "#ffffff");
+    canvas.requestRenderAll();
+    canvas.renderAll();
+
+    const json = draft.pageStates[currentPageIndex];
+    if (json) {
+      await new Promise((resolve) => {
+        canvas.loadFromJSON(json, () => {
+          canvas.renderAll();
+          resolve();
+        });
+      });
+    } else {
+      canvas.renderAll();
+    }
+
+    // Rescale existing text to match the current font-size slider.
+    const currentScale = getFontScale();
+    const storedScale =
+      draft && draft.fontScaleForPage
+        ? draft.fontScaleForPage[currentPageIndex]
+        : currentScale;
+    if (storedScale && Math.abs(storedScale - currentScale) > 0.0001) {
+      const ratio = currentScale / storedScale;
+      canvas.getObjects().forEach((obj) => {
+        if (obj && obj.type === "textbox") {
+          obj.fontSize = Math.max(8, Math.round(obj.fontSize * ratio));
+          obj.setCoords();
+        }
+      });
+      canvas.requestRenderAll();
+      if (draft && draft.fontScaleForPage) draft.fontScaleForPage[currentPageIndex] = currentScale;
+      if (draft) draft.pageStates[currentPageIndex] = canvas.toJSON();
+    }
+
+    // Sync background picker to current page background (if it's a hex value).
+    if (bgColorInput) {
+      const bg = canvas.backgroundColor;
+      if (typeof bg === "string" && bg.startsWith("#")) {
+        bgColorInput.value = bg;
+      }
+    }
+
+    isLoadingPage = false;
+    updateEditorButtons();
+  }
+
+  function saveCurrentPageNow() {
+    if (!draft) return;
+    if (exportInProgress) return;
+    if (isLoadingPage) return;
+    draft.pageStates[currentPageIndex] = canvas.toJSON();
+  }
+
+  function updateEditorButtons() {
+    const hasPages = pageCount > 0;
+    prevBtn.disabled = !hasPages || currentPageIndex <= 0;
+    nextBtn.disabled = !hasPages || currentPageIndex >= pageCount - 1;
+
+    addTextBtn.disabled = !hasPages;
+    addImageBtn.disabled = !hasPages;
+    deleteBtn.disabled = !hasPages;
+    clearPageBtn.disabled = !hasPages;
+    finishBtn.disabled = !hasPages || exportInProgress;
+  }
+
+  function addText(text) {
+    if (!draft) return;
+    const wPx = canvas.getWidth();
+    const hPx = canvas.getHeight();
+    const fontScale = getFontScale();
+    const base = Math.round(Math.min(wPx, hPx) * 0.06);
+    const fontSize = Math.max(12, Math.round(base * fontScale));
+    const width = Math.round(wPx * 0.62);
+
+    const t = new fabric.Textbox(text, {
+      left: wPx / 2,
+      top: hPx / 2,
+      originX: "center",
+      originY: "center",
+      fontFamily:
+        (draft && draft.defaultFontFamily) ||
+        (fontFamilySelect ? fontFamilySelect.value : undefined) ||
+        "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial",
+      fontSize,
+      fill: "#0f172a",
+      width,
+      textAlign: "left",
+      editable: true,
+    });
+
+    canvas.add(t);
+    canvas.setActiveObject(t);
+    canvas.requestRenderAll();
+    canvas.renderAll();
+
+    // If entering edit mode fails in a given Fabric version, ignore.
+    try {
+      t.enterEditing();
+      t.selectAll && t.selectAll();
+    } catch (_) {}
+  }
+
+  function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("读取失败"));
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
+
+  function estimateDataURLBytes(dataURL) {
+    // Rough byte size from base64 payload length.
+    const base64 = String(dataURL).split(",")[1] || "";
+    const padding = (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0);
+    return Math.max(0, Math.ceil((base64.length * 3) / 4) - padding);
+  }
+
+  function loadImageFromBlob(blob) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("图片加载失败"));
+      };
+      img.src = url;
+    });
+  }
+
+  async function compressImageBlobToDataURL(blob) {
+    // First attempt reduces resolution by 10%-20% (scale=0.85~0.9).
+    const img = await loadImageFromBlob(blob);
+
+    let scale = 0.85;
+    let quality = 0.9;
+    let lastDataURL = null;
+
+    // Convert to JPEG for predictable compression/size control.
+    const mime = "image/jpeg";
+
+    for (let i = 0; i < 8; i++) {
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const dataURL = c.toDataURL(mime, quality);
+      lastDataURL = dataURL;
+
+      const bytes = estimateDataURLBytes(dataURL);
+      if (bytes <= MAX_IMAGE_BYTES) return dataURL;
+
+      // If still too large, keep lowering both resolution and quality.
+      scale = Math.max(0.6, scale - 0.06);
+      quality = Math.max(0.6, quality - 0.06);
+    }
+
+    // Best effort: return the smallest we got.
+    return lastDataURL || (await blobToDataURL(blob));
+  }
+
+  async function imageBlobToDataURL(blob) {
+    if (!blob) return null;
+    if (blob.size <= MAX_IMAGE_BYTES) return blobToDataURL(blob);
+    return compressImageBlobToDataURL(blob);
+  }
+
+  function addImageFromDataURL(dataURL) {
+    fabric.Image.fromURL(
+      dataURL,
+      (img) => {
+        const maxW = canvas.getWidth() * 0.72;
+        const maxH = canvas.getHeight() * 0.72;
+        const scale = Math.min(maxW / img.width, maxH / img.height);
+
+        img.set({
+          left: canvas.getWidth() / 2,
+          top: canvas.getHeight() / 2,
+          originX: "center",
+          originY: "center",
+          selectable: true,
+          evented: true,
+        });
+        img.scale(scale);
+
+        canvas.add(img);
+        canvas.setActiveObject(img);
+        canvas.requestRenderAll();
+        canvas.renderAll();
+      },
+      { crossOrigin: "anonymous" }
+    );
+  }
+
+  async function handlePaste(e) {
+    if (!draft) return;
+    if (!e.clipboardData) return;
+    e.preventDefault();
+
+    const dt = e.clipboardData;
+    const items = dt.items ? Array.from(dt.items) : [];
+    const imgItem = items.find((it) => it.type && it.type.startsWith("image/"));
+    if (imgItem) {
+      const blob = imgItem.getAsFile();
+      if (!blob) return;
+      try {
+        const dataURL = await imageBlobToDataURL(blob);
+        addImageFromDataURL(dataURL);
+      } catch (_) {
+        setStatus("粘贴图片失败：浏览器可能不允许剪贴板读取。");
+      }
+      return;
+    }
+
+    const text = (dt.getData("text/plain") || dt.getData("text") || "").trim();
+    if (text) {
+      const t = text.length > 240 ? text.slice(0, 240) : text;
+      addText(t);
+    }
+  }
+
+  async function dataURLToImage(dataURL) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("图片加载失败"));
+      img.src = dataURL;
+    });
+  }
+
+  async function renderPageStateToDataURL(pageJson, pageW, pageH, multiplier) {
+    const tempEl = document.createElement("canvas");
+    tempEl.width = pageW;
+    tempEl.height = pageH;
+    const tempCanvas = new fabric.Canvas(tempEl, { selection: false });
+    tempCanvas.setWidth(pageW);
+    tempCanvas.setHeight(pageH);
+    tempCanvas.backgroundColor = "#ffffff";
+    tempCanvas.requestRenderAll();
+
+    if (pageJson) {
+      await new Promise((resolve) => {
+        tempCanvas.loadFromJSON(pageJson, () => {
+          tempCanvas.renderAll();
+          resolve();
+        });
+      });
+    } else {
+      tempCanvas.renderAll();
+    }
+
+    // Important: dispose temp canvas to avoid memory leaks.
+    const dataURL = tempCanvas.toDataURL({
+      format: "png",
+      multiplier: multiplier,
+    });
+    if (tempCanvas.dispose) tempCanvas.dispose();
+    return dataURL;
+  }
+
+  function showHome() {
+    designerView.classList.add("hidden");
+    viewerOverlay.classList.add("hidden");
+    homeView.classList.remove("hidden");
+    // Keep main editor in background and lazily restore saved icons.
+    if (iconsWall && iconsWall.childElementCount === 0) {
+      restoreHomeIconsFromStorage().catch(() => {});
+    }
+  }
+
+  function showDesigner() {
+    viewerOverlay.classList.add("hidden");
+    homeView.classList.add("hidden");
+    designerView.classList.remove("hidden");
+  }
+
+  // ---------- Home Icons / Storage ----------
+  const STORAGE_PREFIX = "free-zine:";
+  const STORAGE_INDEX_KEY = `${STORAGE_PREFIX}index`;
+  let zines = []; // in-memory (includes pageStates)
+  let currentViewingZineId = null;
+
+  // Server-side storage via backend API.
+  async function apiJSON(url, options) {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options && options.headers ? options.headers : {}),
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`API ${res.status}: ${text || url}`);
+    }
+    return res.json();
+  }
+
+  function safeParseJSON(s) {
+    try {
+      return JSON.parse(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function readStoredZineIds() {
+    const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+    const arr = safeParseJSON(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((id) => typeof id === "string" && id.length > 0);
+  }
+
+  async function persistZineToStorage(z) {
+    if (!z || !z.id) return;
+    const payload = {
+      id: z.id,
+      createdAt: z.createdAt,
+      pageCount: z.pageCount,
+      aspect: z.aspect,
+      pageWidthPx: z.pageWidthPx,
+      pageHeightPx: z.pageHeightPx,
+      pageStates: z.pageStates,
+      fontScaleForPage: z.fontScaleForPage,
+      defaultFontFamily: z.defaultFontFamily,
+      defaultBgColor: z.defaultBgColor,
+      iconDataURL: z.iconDataURL,
+    };
+    await apiJSON(`/api/zines/${encodeURIComponent(z.id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+
+    const ids = readStoredZineIds();
+    if (!ids.includes(z.id)) {
+      ids.unshift(z.id);
+      localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(ids.slice(0, 200)));
+    }
+  }
+
+  async function loadZineFromStorage(id) {
+    try {
+      const payload = await apiJSON(`/api/zines/${encodeURIComponent(id)}`, { method: "GET" });
+      if (!payload) return null;
+      if (!payload.pageStates || !Array.isArray(payload.pageStates)) return null;
+      return payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function randomIconPlacement(iconEl) {
+    const wallRect = iconsWall.getBoundingClientRect();
+    const btnSize = HOME_ICON_SIZE;
+    const padding = 16;
+
+    const cx = wallRect.width / 2;
+    const cy = wallRect.height / 2;
+    const excludeR = 160; // avoid covering the center button
+
+    let x = 0;
+    let y = 0;
+    for (let attempt = 0; attempt < 60; attempt++) {
+      x = padding + Math.random() * (Math.max(0, wallRect.width - btnSize - padding * 2));
+      y = padding + Math.random() * (Math.max(0, wallRect.height - btnSize - padding * 2));
+      const px = x + btnSize / 2 - cx;
+      const py = y + btnSize / 2 - cy;
+      if (px * px + py * py > excludeR * excludeR) break;
+    }
+
+    iconEl.style.left = `${x}px`;
+    iconEl.style.top = `${y}px`;
+  }
+
+  function addIconToHome(zine) {
+    // Use a div to avoid adding extra "buttons" on the home page.
+    const btn = document.createElement("div");
+    btn.className = "zine-icon-btn";
+    btn.dataset.zineId = zine.id;
+    btn.setAttribute("role", "button");
+    btn.setAttribute("tabindex", "0");
+    btn.setAttribute("aria-label", "打开电子书阅览");
+
+    const img = document.createElement("img");
+    img.alt = "自由ZINE 图标";
+    img.src = zine.iconDataURL;
+
+    btn.appendChild(img);
+
+    btn.addEventListener("click", () => {
+      // Open a landing page in a new window (cover + "阅览" button).
+      window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
+    });
+    btn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
+      }
+    });
+    iconsWall.appendChild(btn);
+    randomIconPlacement(btn);
+  }
+
+  function clearHomeIcons() {
+    iconsWall.innerHTML = "";
+  }
+
+  async function restoreHomeIconsFromStorage() {
+    if (!iconsWall) return;
+    if (currentViewingZineId) return;
+    clearHomeIcons();
+
+    try {
+      const data = await apiJSON("/api/zines", { method: "GET" });
+      const items = (data && data.items) || [];
+      for (let i = 0; i < items.length; i++) {
+        if (currentViewingZineId) return;
+        const z = items[i];
+        if (!z || !z.id) continue;
+        if (!zines.find((x) => x.id === z.id)) zines.push(z);
+        if (z.iconDataURL && typeof z.iconDataURL === "string") addIconToHome(z);
+        if (zines.length >= 60) break;
+      }
+    } catch (e) {
+      showRuntimeError(e);
+    }
+  }
+
+  // ---------- Viewer ----------
+  async function openViewer(zineId) {
+    let zine = zines.find((z) => z.id === zineId);
+    if (!zine) {
+      const stored = await loadZineFromStorage(zineId);
+      if (!stored) return;
+      zine = stored;
+      zines.push(zine);
+    }
+
+    currentViewingZineId = zine.id;
+    exportInProgress = false; // allow UI
+    viewerOverlay.classList.remove("hidden");
+    homeView.classList.add("hidden");
+    designerView.classList.add("hidden");
+    viewerOverlay.classList.remove("single-mode");
+
+    document.body.style.overflow = "hidden";
+    viewerTitle.textContent = `自由ZINE · ${zine.pageCount} 页`;
+    viewerRail.innerHTML = "";
+
+    // Mode & single index init
+    viewerMode = localStorage.getItem("free-zine:viewerMode") || "seamless";
+    if (viewerMode === "single") {
+      const storedIndex = Number(localStorage.getItem("free-zine:viewerSingleIndex") || "0");
+      viewerSinglePageIndex = Number.isFinite(storedIndex)
+        ? Math.max(0, Math.min(zine.pageCount - 1, Math.round(storedIndex)))
+        : 0;
+    }
+
+    // Sync mode UI
+    viewerModeSeamlessBtn?.classList.toggle("primary", viewerMode === "seamless");
+    viewerModeSingleBtn?.classList.toggle("primary", viewerMode === "single");
+
+    const isSingle = viewerMode === "single";
+    viewerPrevPageBtn?.classList.toggle("hidden", !isSingle);
+    viewerNextPageBtn?.classList.toggle("hidden", !isSingle);
+
+    // For single mode, we don't want horizontal scrolling.
+    viewerRail.classList.toggle("single-mode", isSingle);
+
+    // Admin delete visibility
+    viewerDeleteBtn.classList.toggle("hidden", !isAdminAuthed());
+
+    viewerOverlay.tabIndex = 0;
+    viewerOverlay.focus();
+
+    const displayHeight = Math.min(720, Math.max(360, window.innerHeight - 140));
+
+    const pageW = zine.pageWidthPx;
+    const pageH = zine.pageHeightPx;
+    const outputMultiplier = Math.min(2, Math.max(0.5, (displayHeight * 1.1) / pageH));
+
+    // Cache page images in-memory for faster re-opens.
+    if (
+      !zine.pageImageCache ||
+      zine.pageImageCache.length !== zine.pageCount ||
+      zine.pageImageCacheMultiplier !== outputMultiplier
+    ) {
+      zine.pageImageCache = new Array(zine.pageCount).fill(null);
+      zine.pageImageCacheMultiplier = outputMultiplier;
+    }
+
+    // Reuse a single temp canvas for performance.
+    const tempEl = document.createElement("canvas");
+    tempEl.width = pageW;
+    tempEl.height = pageH;
+    const tempCanvas = new fabric.Canvas(tempEl, { selection: false });
+    tempCanvas.setWidth(pageW);
+    tempCanvas.setHeight(pageH);
+    tempCanvas.backgroundColor = "#ffffff";
+    tempCanvas.requestRenderAll();
+
+    async function ensurePageImage(i) {
+      let dataURL = zine.pageImageCache[i];
+      if (dataURL) return dataURL;
+
+      tempCanvas.clear();
+      tempCanvas.setBackgroundColor("#ffffff", tempCanvas.renderAll.bind(tempCanvas));
+      tempCanvas.requestRenderAll();
+
+      const json = zine.pageStates[i];
+      if (json) {
+        await new Promise((resolve) => {
+          tempCanvas.loadFromJSON(json, () => {
+            tempCanvas.renderAll();
+            resolve();
+          });
+        });
+      } else {
+        tempCanvas.renderAll();
+      }
+
+      dataURL = tempCanvas.toDataURL({ format: "png", multiplier: outputMultiplier });
+      zine.pageImageCache[i] = dataURL;
+      return dataURL;
+    }
+
+    setViewerStatus("正在渲染页面，请稍候...");
+
+    if (isSingle) {
+      const i = viewerSinglePageIndex;
+      setViewerStatus(`渲染第 ${i + 1} / ${zine.pageCount} 页...`);
+      const dataURL = await ensurePageImage(i);
+
+      const img = document.createElement("img");
+      img.alt = `第 ${i + 1} 页`;
+      img.src = dataURL;
+      img.style.height = `${displayHeight}px`;
+      img.style.borderLeft = "0";
+      img.style.scrollSnapAlign = "start";
+
+      const pageWrap = document.createElement("div");
+      pageWrap.className = "viewer-page";
+      pageWrap.appendChild(img);
+      viewerRail.appendChild(pageWrap);
+    } else {
+      for (let i = 0; i < zine.pageCount; i++) {
+        setViewerStatus(`渲染第 ${i + 1} / ${zine.pageCount} 页...`);
+        const dataURL = await ensurePageImage(i);
+
+        const img = document.createElement("img");
+        img.alt = `第 ${i + 1} 页`;
+        img.src = dataURL;
+        img.style.height = `${displayHeight}px`;
+        if (i !== 0) img.style.borderLeft = "0";
+        img.style.scrollSnapAlign = "start";
+
+        const pageWrap = document.createElement("div");
+        pageWrap.className = "viewer-page";
+        pageWrap.appendChild(img);
+        viewerRail.appendChild(pageWrap);
+      }
+    }
+
+    if (tempCanvas.dispose) tempCanvas.dispose();
+    setViewerStatus("");
+  }
+
+  function closeViewer() {
+    viewerOverlay.classList.add("hidden");
+    document.body.style.overflow = "";
+    // Return to home
+    homeView.classList.remove("hidden");
+    currentViewingZineId = null;
+  }
+
+  // ---------- Icon Generation ----------
+  async function generateBookIcon(z) {
+    const icon = document.createElement("canvas");
+    icon.width = ICON_CANVAS_SIZE;
+    icon.height = ICON_CANVAS_SIZE;
+    const ctx = icon.getContext("2d");
+
+    // Micro rounded container.
+    const iconR = 20;
+    const pad = 14;
+    const coverX = pad;
+    const coverY = pad;
+    const coverSize = ICON_CANVAS_SIZE - pad * 2;
+    const coverR = 16; //微圆角：封面内圆角
+
+    ctx.fillStyle = "#ffffff";
+    ctx.clearRect(0, 0, ICON_CANVAS_SIZE, ICON_CANVAS_SIZE);
+    roundRect(ctx, pad - 1, pad - 1, ICON_CANVAS_SIZE - (pad - 1) * 2, ICON_CANVAS_SIZE - (pad - 1) * 2, iconR);
+    ctx.fill();
+
+    // Border (subtle)
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(15,23,42,.12)";
+    roundRect(ctx, pad - 1, pad - 1, ICON_CANVAS_SIZE - (pad - 1) * 2, ICON_CANVAS_SIZE - (pad - 1) * 2, iconR);
+    ctx.stroke();
+
+    // Render only the first page ("首图").
+    setStatus("生成封面图标：渲染第 1 页...");
+    const tempEl = document.createElement("canvas");
+    tempEl.width = z.pageWidthPx;
+    tempEl.height = z.pageHeightPx;
+    const tempCanvas = new fabric.Canvas(tempEl, { selection: false });
+    tempCanvas.setWidth(z.pageWidthPx);
+    tempCanvas.setHeight(z.pageHeightPx);
+    tempCanvas.setBackgroundColor("#ffffff");
+
+    const json0 = z.pageStates && z.pageStates[0] ? z.pageStates[0] : null;
+    if (json0) {
+      await new Promise((resolve) => {
+        tempCanvas.loadFromJSON(json0, () => {
+          tempCanvas.renderAll();
+          resolve();
+        });
+      });
+    } else {
+      tempCanvas.renderAll();
+    }
+
+    const coverDataURL = tempCanvas.toDataURL({ format: "png", multiplier: 0.32 });
+    if (tempCanvas.dispose) tempCanvas.dispose();
+
+    const img = await dataURLToImage(coverDataURL);
+
+    // Crop to a square area (like CSS `object-fit: cover`).
+    const pageAspect = z.pageWidthPx / z.pageHeightPx;
+    let dw = coverSize;
+    let dh = coverSize;
+    let dx = coverX;
+    let dy = coverY;
+
+    if (pageAspect >= 1) {
+      dh = coverSize / pageAspect;
+      dy = coverY + (coverSize - dh) / 2;
+    } else {
+      dw = coverSize * pageAspect;
+      dx = coverX + (coverSize - dw) / 2;
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    roundRectPath(ctx, coverX, coverY, coverSize, coverSize, coverR);
+    ctx.clip();
+    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.restore();
+
+    return icon.toDataURL("image/png");
+  }
+
+  function downloadDataURL(_dataURL, _filename) {
+    // This app's flow is: icon is displayed on home for reading.
+    // Download is optional; currently not required by your new spec.
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    roundRectPath(ctx, x, y, w, h, r);
+  }
+  function roundRectPath(ctx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+  }
+
+  // ---------- Editor Flow ----------
+  function resetDraft() {
+    draft = null;
+    pageCount = 0;
+    currentPageIndex = 0;
+    isLoadingPage = false;
+    exportInProgress = false;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+
+  function startEditing() {
+    const count = clampInt(pageCountInput.value, 1, 50);
+    const aspect = getSelectedRatio();
+    startBtn.disabled = true;
+
+    // Prevent user actions during canvas/draft initialization.
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    addTextBtn.disabled = true;
+    addImageBtn.disabled = true;
+    deleteBtn.disabled = true;
+    clearPageBtn.disabled = true;
+    finishBtn.disabled = true;
+
+    setupPanel.classList.add("hidden");
+    editorPanel.classList.remove("hidden");
+
+    // Layout-dependent canvas size must be computed when the editor is visible.
+    requestAnimationFrame(() => {
+      // Wait another frame after `hidden` -> visible to stabilize layout.
+      requestAnimationFrame(() => {
+        const dims = calcPageDims(aspect);
+
+        // Create draft
+        draft = {
+          id: crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now()) + Math.random().toString(16).slice(2),
+          createdAt: Date.now(),
+          pageCount: count,
+          aspect: { w: aspect.w, h: aspect.h, label: aspect.label },
+          pageWidthPx: dims.wPx,
+          pageHeightPx: dims.hPx,
+          defaultFontFamily: fontFamilySelect ? fontFamilySelect.value : "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial",
+          defaultBgColor: bgColorInput ? bgColorInput.value : "#ffffff",
+          pageStates: new Array(count).fill(null),
+          pageImageCache: new Array(count).fill(null),
+          fontScaleForPage: new Array(count).fill(getFontScale()),
+          pageImageCacheMultiplier: null,
+          iconDataURL: null,
+        };
+
+        pageCount = count;
+        currentPageIndex = 0;
+        ensureMainCanvas(dims.wPx, dims.hPx);
+
+        setStatus(`已创建：${count} 页 · 比例 ${aspect.label}`);
+        canvas.clear();
+        canvas.setBackgroundColor(draft.defaultBgColor || "#ffffff");
+        canvas.requestRenderAll();
+        canvas.renderAll();
+
+        loadPage(0)
+          .then(() => {
+            startBtn.disabled = false;
+          })
+          .catch((e) => {
+            console.error(e);
+            setStatus("创建失败，请刷新后重试。");
+            startBtn.disabled = false;
+          });
+      });
+    });
+  }
+
+  function finishAndReturnHome() {
+    if (!draft) return;
+    if (exportInProgress) return;
+    exportInProgress = true;
+
+    setStatus("正在封装成图标...");
+    finishBtn.disabled = true;
+
+    // Save latest page changes.
+    saveCurrentPageNow();
+
+    (async () => {
+      try {
+        const iconDataURL = await generateBookIcon(draft);
+        draft.iconDataURL = iconDataURL;
+
+        try {
+          await persistZineToStorage(draft);
+        } catch (e) {
+          // localStorage 可能因为大小/权限失败，仍允许继续使用当前会话
+          console.warn("保存到本地失败：", e);
+        }
+
+        // Add to home & keep in-memory for viewing.
+        zines.push(draft);
+        addIconToHome(draft);
+
+        setStatus("");
+        resetDraft();
+        // Back home
+        setupPanel.classList.remove("hidden");
+        editorPanel.classList.add("hidden");
+        canvas && canvas.clear();
+
+        showHome();
+      } catch (e) {
+        console.error(e);
+        setStatus("封装失败，请重试。");
+        exportInProgress = false;
+        updateEditorButtons();
+      }
+    })();
+  }
+
+  // ---------- Events ----------
+  homeEnterBtn?.addEventListener("click", () => {
+    showDesigner();
+  });
+
+  backHomeBtn?.addEventListener("click", () => {
+    resetDraft();
+    setupPanel.classList.remove("hidden");
+    editorPanel.classList.add("hidden");
+    setStatus("");
+    showHome();
+  });
+
+  startBtn?.addEventListener("click", () => {
+    startEditing();
+  });
+
+  prevBtn?.addEventListener("click", () => {
+    if (!draft) return;
+    saveCurrentPageNow();
+    loadPage(currentPageIndex - 1);
+  });
+
+  nextBtn?.addEventListener("click", () => {
+    if (!draft) return;
+    saveCurrentPageNow();
+    loadPage(currentPageIndex + 1);
+  });
+
+  addTextBtn.addEventListener("click", () => {
+    if (!draft) return;
+    const t = window.prompt("输入文字：");
+    if (!t) return;
+    addText(t.trim());
+  });
+
+  addImageBtn.addEventListener("click", () => {
+    if (!draft) return;
+    imageFileInput.click();
+  });
+
+  imageFileInput.addEventListener("change", async () => {
+    if (!draft) return;
+    const file = imageFileInput.files && imageFileInput.files[0];
+    if (!file) return;
+    const dataURL = await imageBlobToDataURL(file);
+    addImageFromDataURL(dataURL);
+    imageFileInput.value = "";
+  });
+
+  deleteBtn.addEventListener("click", () => {
+    if (!draft) return;
+    const obj = canvas.getActiveObject();
+    if (!obj) return;
+    canvas.remove(obj);
+    canvas.requestRenderAll();
+  });
+
+  clearPageBtn.addEventListener("click", async () => {
+    if (!draft) return;
+    const ok = window.confirm("确定清空本页？");
+    if (!ok) return;
+    isLoadingPage = true;
+    canvas.clear();
+    canvas.setBackgroundColor(draft.defaultBgColor || "#ffffff");
+    canvas.requestRenderAll();
+    draft.pageStates[currentPageIndex] = null;
+    isLoadingPage = false;
+    setStatus("已清空本页");
+  });
+
+  finishBtn.addEventListener("click", () => {
+    finishAndReturnHome();
+  });
+
+  // Paste support
+  pageWrap.addEventListener("mousedown", () => {
+    pageWrap.focus();
+  });
+  pageWrap.addEventListener("paste", handlePaste);
+  canvasEl.addEventListener("click", () => pageWrap.focus());
+
+  viewerCloseBtn.addEventListener("click", () => {
+    closeViewer();
+  });
+
+  // Viewer mode switching
+  function persistViewerMode(mode) {
+    viewerMode = mode;
+    localStorage.setItem("free-zine:viewerMode", mode);
+  }
+
+  viewerModeSeamlessBtn?.addEventListener("click", () => {
+    if (!currentViewingZineId) return;
+    persistViewerMode("seamless");
+    openViewer(currentViewingZineId).catch(() => {});
+  });
+
+  viewerModeSingleBtn?.addEventListener("click", () => {
+    if (!currentViewingZineId) return;
+    persistViewerMode("single");
+    localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
+    openViewer(currentViewingZineId).catch(() => {});
+  });
+
+  // Single-page navigation
+  viewerPrevPageBtn?.addEventListener("click", () => {
+    if (viewerMode !== "single") return;
+    if (!currentViewingZineId) return;
+    viewerSinglePageIndex = Math.max(0, viewerSinglePageIndex - 1);
+    localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
+    openViewer(currentViewingZineId).catch(() => {});
+  });
+
+  viewerNextPageBtn?.addEventListener("click", () => {
+    if (viewerMode !== "single") return;
+    if (!currentViewingZineId) return;
+    const z = zines.find((x) => x.id === currentViewingZineId);
+    const maxIndex = z ? z.pageCount - 1 : viewerSinglePageIndex;
+    viewerSinglePageIndex = Math.max(0, Math.min(maxIndex, viewerSinglePageIndex + 1));
+    localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
+    openViewer(currentViewingZineId).catch(() => {});
+  });
+
+  // Keyboard navigation in single mode
+  viewerOverlay?.addEventListener("keydown", (e) => {
+    if (viewerMode !== "single") return;
+    if (viewerOverlay.classList.contains("hidden")) return;
+    if (loginModal && !loginModal.classList.contains("hidden")) return;
+    if (!currentViewingZineId) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      viewerPrevPageBtn?.click();
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      viewerNextPageBtn?.click();
+    }
+  });
+
+  // Admin login UI
+  function showLoginModal() {
+    if (!loginModal) return;
+    loginModal.classList.remove("hidden");
+    loginUserInput?.focus();
+  }
+  function hideLoginModal() {
+    if (!loginModal) return;
+    loginModal.classList.add("hidden");
+  }
+
+  loginEntryBtn?.addEventListener("click", () => {
+    showLoginModal();
+  });
+  loginCancelBtn?.addEventListener("click", () => {
+    hideLoginModal();
+  });
+
+  loginModal?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loginSubmitBtn?.click();
+    }
+  });
+
+  loginSubmitBtn?.addEventListener("click", () => {
+    const u = String(loginUserInput?.value || "");
+    const p = String(loginPassInput?.value || "");
+    if (u === ADMIN_USER && p === ADMIN_PASS) {
+      localStorage.setItem(ADMIN_FLAG_KEY, "1");
+      hideLoginModal();
+      viewerDeleteBtn?.classList.toggle("hidden", !isAdminAuthed());
+      syncLoginEntryUI();
+      setStatus("管理员登录成功");
+    } else {
+      setStatus("管理员登录失败");
+      if (loginPassInput) loginPassInput.value = "";
+      loginPassInput?.focus();
+    }
+  });
+
+  // Delete zine (admin only)
+  async function deleteZineCompletely(zineId) {
+    if (!zineId) return false;
+    if (!isAdminAuthed()) return false;
+
+    const ok = window.confirm("确定删除此电子书？此操作不可撤销。");
+    if (!ok) return false;
+
+    try {
+      await apiJSON(`/api/zines/${encodeURIComponent(zineId)}`, { method: "DELETE" });
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+
+    // Update index list
+    const ids = readStoredZineIds().filter((id) => id !== zineId);
+    localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(ids));
+
+    // Update in-memory & UI icons
+    zines = zines.filter((z) => z.id !== zineId);
+    const iconEl = iconsWall?.querySelector(`[data-zine-id="${zineId}"]`);
+    iconEl?.remove();
+
+    if (currentViewingZineId === zineId) closeViewer();
+    if (window.location.hash.includes("zine=")) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    return true;
+  }
+
+  viewerDeleteBtn?.addEventListener("click", async () => {
+    await deleteZineCompletely(currentViewingZineId);
+  });
+
+  viewerShareBtn.addEventListener("click", async () => {
+    const zid = currentViewingZineId;
+    if (!zid) return;
+    const shareURL = `${window.location.origin}${window.location.pathname}#zine=${encodeURIComponent(zid)}`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareURL);
+      } else {
+        // Fallback for older browsers.
+        window.prompt("复制该链接：", shareURL);
+        return;
+      }
+      setViewerStatus("已复制分享链接");
+      setTimeout(() => setViewerStatus(""), 1200);
+    } catch (_) {
+      window.prompt("复制该链接：", shareURL);
+    }
+  });
+
+  // Live font scaling for existing text objects on the current page.
+  function syncFontScaleText() {
+    if (!fontScaleRange || !fontScaleText) return;
+    const v = Number(fontScaleRange.value);
+    fontScaleText.textContent = `${(Number.isFinite(v) ? v : 1).toFixed(2)}x`;
+  }
+
+  fontScaleRange?.addEventListener("input", () => {
+    syncFontScaleText();
+    if (!draft) return;
+    if (exportInProgress) return;
+    if (pageCount <= 0) return;
+
+    const currentScale = getFontScale();
+    const storedScale = draft.fontScaleForPage
+      ? draft.fontScaleForPage[currentPageIndex] ?? currentScale
+      : currentScale;
+    if (!storedScale || Math.abs(storedScale - currentScale) < 0.0001) return;
+
+    const ratio = currentScale / storedScale;
+    canvas.getObjects().forEach((obj) => {
+      if (obj && obj.type === "textbox") {
+        obj.fontSize = Math.max(8, Math.round(obj.fontSize * ratio));
+        obj.setCoords();
+      }
+    });
+
+    draft.fontScaleForPage[currentPageIndex] = currentScale;
+    draft.pageStates[currentPageIndex] = canvas.toJSON();
+    canvas.requestRenderAll();
+  });
+
+  syncFontScaleText();
+
+  // Live font family for existing text objects on the current page.
+  fontFamilySelect?.addEventListener("change", () => {
+    if (!draft) return;
+    const val = fontFamilySelect.value;
+    draft.defaultFontFamily = val;
+    canvas.getObjects().forEach((obj) => {
+      if (obj && obj.type === "textbox") {
+        obj.fontFamily = val;
+        obj.setCoords();
+      }
+    });
+    canvas.requestRenderAll();
+    if (!isLoadingPage) draft.pageStates[currentPageIndex] = canvas.toJSON();
+  });
+
+  // Live background color for the current page.
+  bgColorInput?.addEventListener("input", () => {
+    if (!draft) return;
+    const col = bgColorInput.value;
+    draft.defaultBgColor = col;
+    canvas.setBackgroundColor(col);
+    canvas.requestRenderAll();
+    canvas.renderAll();
+    if (!isLoadingPage) draft.pageStates[currentPageIndex] = canvas.toJSON();
+  });
+
+  // Ratio selection: add visual state without relying on :has() selector.
+  function syncRatioSelectionStyles() {
+    ratioRadios.forEach((radio) => {
+      const optionEl = radio.closest(".ratio-option");
+      if (!optionEl) return;
+      optionEl.classList.toggle("is-selected", !!radio.checked);
+    });
+  }
+
+  ratioRadios.forEach((radio) => {
+    radio.addEventListener("change", syncRatioSelectionStyles);
+  });
+  syncRatioSelectionStyles();
+
+  // Init
+  resetDraft();
+  editorPanel.classList.add("hidden");
+  setupPanel.classList.remove("hidden");
+  showHome();
+  syncLoginEntryUI();
+
+  // Open a specific ZINE from share link.
+  const hash = window.location.hash || "";
+  const m = hash.match(/zine=([^&]+)/);
+  if (m && m[1]) {
+    const zineId = decodeURIComponent(m[1]);
+    const stored = await loadZineFromStorage(zineId);
+    if (stored) {
+      zines = [stored];
+      openViewer(zineId).catch(() => {});
+    }
+  }
+})();
+

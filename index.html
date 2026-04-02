@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>自由ZINE</title>
+    <link rel="stylesheet" href="./style2.css" />
+  </head>
+  <body>
+    <!-- Home -->
+    <div id="homeView" class="view home-view" role="main">
+      <button id="homeEnterBtn" class="circle-btn primary">
+        现在，设计你的ZINE
+      </button>
+      <div id="iconsWall" class="icons-wall" aria-label="ZINE 图标墙"></div>
+    </div>
+
+    <!-- Designer -->
+    <div id="designerView" class="view designer-view hidden">
+      <div class="designer-top">
+        <div class="designer-brand">自由ZINE</div>
+        <button id="backHomeBtn" class="circle-btn small">主页</button>
+      </div>
+
+      <div id="setupPanel" class="panel setup-panel">
+        <div class="setup-row">
+          <label class="control">
+            <span class="control-label">空白页数量</span>
+            <input id="pageCountInput" type="number" min="1" max="50" value="3" />
+          </label>
+
+          <label class="control">
+            <span class="control-label">页面比例</span>
+            <div class="ratio-group" role="radiogroup" aria-label="页面比例">
+              <label class="ratio-option">
+                <input type="radio" name="ratio" value="1:1" checked />
+                <span>1:1</span>
+              </label>
+              <label class="ratio-option">
+                <input type="radio" name="ratio" value="5:4" />
+                <span>5:4</span>
+              </label>
+              <label class="ratio-option">
+                <input type="radio" name="ratio" value="3:2" />
+                <span>3:2</span>
+              </label>
+              <label class="ratio-option">
+                <input type="radio" name="ratio" value="4:5" />
+                <span>4:5</span>
+              </label>
+              <label class="ratio-option">
+                <input type="radio" name="ratio" value="2:3" />
+                <span>2:3</span>
+              </label>
+            </div>
+          </label>
+        </div>
+
+        <div class="setup-actions">
+          <button id="startBtn" class="circle-btn primary">
+            生成并开始制作
+          </button>
+        </div>
+      </div>
+
+      <div id="editorPanel" class="panel editor-panel hidden">
+        <div class="editor-nav">
+          <button id="prevBtn" class="circle-btn">上一页</button>
+          <div id="pageIndexText" class="page-indicator">第 0 页</div>
+          <button id="nextBtn" class="circle-btn">下一页</button>
+        </div>
+
+        <div class="toolbar">
+          <button id="addTextBtn" class="circle-btn">添加文字</button>
+          <button id="addImageBtn" class="circle-btn">添加图片</button>
+          <button id="deleteBtn" class="circle-btn">删除选中</button>
+          <button id="clearPageBtn" class="circle-btn danger">清空本页</button>
+          <div class="font-control" aria-label="文字大小">
+            <span class="font-label">文字大小</span>
+            <input id="fontScaleRange" type="range" min="0.6" max="2.2" step="0.05" value="1" />
+            <span id="fontScaleText" class="font-value">1.00x</span>
+          </div>
+          <label class="control-inline" aria-label="字体">
+            <span class="control-label-inline">字体</span>
+            <select id="fontFamilySelect" class="control-select">
+              <option value="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Arial" selected>
+                无衬线
+              </option>
+              <option value="Georgia, serif">衬线</option>
+              <option value="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, &quot;Liberation Mono&quot;, &quot;Courier New&quot;, monospace">
+                等宽
+              </option>
+            </select>
+          </label>
+          <label class="control-inline" aria-label="背景颜色">
+            <span class="control-label-inline">背景</span>
+            <input id="bgColorInput" class="color-input" type="color" value="#ffffff" />
+          </label>
+          <input id="imageFileInput" type="file" accept="image/*" hidden />
+        </div>
+
+        <div id="pageWrap" class="page-wrap" tabindex="0" role="application" aria-label="ZINE 编辑区域">
+          <canvas id="zineCanvas"></canvas>
+        </div>
+
+        <div class="editor-actions">
+          <button id="finishBtn" class="circle-btn primary">
+            完成并封装成图标
+          </button>
+          <div id="statusText" class="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Viewer -->
+    <div id="viewerOverlay" class="viewer-overlay hidden" role="dialog" aria-modal="true">
+      <div class="viewer-topbar">
+        <button id="viewerCloseBtn" class="circle-btn small">关闭</button>
+        <div id="viewerTitle" class="viewer-title">阅读</div>
+        <div id="viewerStatus" class="viewer-status"></div>
+        <div class="viewer-right-actions" aria-label="阅读模式与操作">
+          <button id="viewerModeSeamlessBtn" class="circle-btn small">无缝阅览</button>
+          <button id="viewerModeSingleBtn" class="circle-btn small">单张阅览</button>
+          <button id="viewerPrevPageBtn" class="circle-btn small hidden" aria-label="上一页">←</button>
+          <button id="viewerNextPageBtn" class="circle-btn small hidden" aria-label="下一页">→</button>
+          <button id="viewerShareBtn" class="circle-btn small">分享</button>
+          <button id="viewerDeleteBtn" class="circle-btn small danger hidden">删除</button>
+        </div>
+      </div>
+      <div id="viewerRail" class="viewer-rail" aria-label="电子书页面平铺阅览"></div>
+    </div>
+
+    <!-- Admin login entry -->
+    <div id="globalErrorBar" class="global-error-bar hidden" aria-live="polite"></div>
+    <button id="loginEntryBtn" class="login-entry" type="button" aria-label="管理员登录"></button>
+
+    <!-- Login modal -->
+    <div id="loginModal" class="login-modal hidden" role="dialog" aria-modal="true">
+      <div class="login-card">
+        <div class="login-title">管理员登录</div>
+        <div class="login-field">
+          <span class="login-label">账号</span>
+          <input id="loginUserInput" class="login-input" type="text" autocomplete="username" />
+        </div>
+        <div class="login-field">
+          <span class="login-label">密码</span>
+          <input id="loginPassInput" class="login-input" type="password" autocomplete="current-password" />
+        </div>
+        <div class="login-actions">
+          <button id="loginSubmitBtn" class="circle-btn primary" type="button">登录</button>
+          <button id="loginCancelBtn" class="circle-btn" type="button">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+    <script src="./app2.js"></script>
+  </body>
+</html>
+
