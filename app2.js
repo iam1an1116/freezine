@@ -38,6 +38,10 @@
 
   const fontFamilySelect = document.getElementById("fontFamilySelect");
   const bgColorInput = document.getElementById("bgColorInput");
+  const canvasBorderRadios = Array.from(document.querySelectorAll('input[name="canvasBorder"]'));
+
+  const appLoader = document.getElementById("appLoader");
+  const appLoaderText = document.getElementById("appLoaderText");
 
   const finishBtn = document.getElementById("finishBtn");
   const statusText = document.getElementById("statusText");
@@ -96,6 +100,55 @@
   // Viewer modes
   let viewerMode = localStorage.getItem("free-zine:viewerMode") || "seamless"; // 'seamless' | 'single'
   let viewerSinglePageIndex = 0;
+  let viewerCachedPageCount = 0;
+  let appLoaderDepth = 0;
+
+  function setAppLoading(on, message) {
+    if (!appLoader) return;
+    if (on) {
+      appLoaderDepth += 1;
+      if (appLoaderText && message) appLoaderText.textContent = message;
+      appLoader.classList.remove("hidden");
+      appLoader.setAttribute("aria-busy", "true");
+      appLoader.setAttribute("aria-hidden", "false");
+    } else {
+      appLoaderDepth = Math.max(0, appLoaderDepth - 1);
+      if (appLoaderDepth === 0) {
+        appLoader.classList.add("hidden");
+        appLoader.setAttribute("aria-busy", "false");
+        appLoader.setAttribute("aria-hidden", "true");
+      }
+    }
+  }
+
+  function normalizeCanvasBorder(v) {
+    if (v === "black" || v === "none") return v;
+    return "gray";
+  }
+
+  function syncCanvasBorderOptionStyles() {
+    canvasBorderRadios.forEach((radio) => {
+      const opt = radio.closest(".border-option");
+      if (!opt) return;
+      opt.classList.toggle("is-selected", !!radio.checked);
+    });
+  }
+
+  function applyEditorCanvasBorder() {
+    if (!pageWrap) return;
+    const mode = draft ? normalizeCanvasBorder(draft.editorCanvasBorder) : "gray";
+    pageWrap.dataset.canvasBorder = mode;
+    pageWrap.classList.toggle("canvas-border-none", mode === "none");
+  }
+
+  function syncCanvasBorderRadios() {
+    const v = draft ? normalizeCanvasBorder(draft.editorCanvasBorder) : "gray";
+    canvasBorderRadios.forEach((r) => {
+      r.checked = r.value === v;
+    });
+    syncCanvasBorderOptionStyles();
+  }
+
 
   // Admin (client-side only; not secure)
   const ADMIN_USER = "1an";
@@ -431,6 +484,7 @@
     canvas.calcOffset();
     canvas.requestRenderAll();
     canvas.renderAll();
+    applyEditorCanvasBorder();
   }
 
   async function loadPage(index) {
@@ -852,6 +906,7 @@
       defaultFontFamily: z.defaultFontFamily,
       defaultBgColor: z.defaultBgColor,
       iconDataURL: z.iconDataURL,
+      editorCanvasBorder: normalizeCanvasBorder(z.editorCanvasBorder),
     };
     await apiJSON(`/api/zines/${encodeURIComponent(z.id)}`, {
       method: "PUT",
@@ -878,30 +933,6 @@
     }
   }
 
-  function randomIconPlacement(iconEl) {
-    const wallRect = iconsWall.getBoundingClientRect();
-    const btnW = iconEl.offsetWidth || 110;
-    const btnH = iconEl.offsetHeight || 126;
-    const padding = 16;
-
-    const cx = wallRect.width / 2;
-    const cy = wallRect.height / 2;
-    const excludeR = 160; // avoid covering the center button
-
-    let x = 0;
-    let y = 0;
-    for (let attempt = 0; attempt < 60; attempt++) {
-      x = padding + Math.random() * (Math.max(0, wallRect.width - btnW - padding * 2));
-      y = padding + Math.random() * (Math.max(0, wallRect.height - btnH - padding * 2));
-      const px = x + btnW / 2 - cx;
-      const py = y + btnH / 2 - cy;
-      if (px * px + py * py > excludeR * excludeR) break;
-    }
-
-    iconEl.style.left = `${x}px`;
-    iconEl.style.top = `${y}px`;
-  }
-
   function addIconToHome(zine) {
     // Use wrapper + icon + label.
     const item = document.createElement("div");
@@ -913,6 +944,20 @@
     btn.setAttribute("role", "button");
     btn.setAttribute("tabindex", "0");
     btn.setAttribute("aria-label", "打开电子书阅览");
+
+    const aw = zine.aspect && zine.aspect.w ? Number(zine.aspect.w) : 1;
+    const ah = zine.aspect && zine.aspect.h ? Number(zine.aspect.h) : 1;
+    const ar = ah > 0 ? aw / ah : 1;
+    const maxSide = 112;
+    let bw = maxSide;
+    let bh = maxSide;
+    if (ar >= 1) {
+      bh = Math.max(56, Math.round(maxSide / ar));
+    } else {
+      bw = Math.max(56, Math.round(maxSide * ar));
+    }
+    btn.style.width = `${bw}px`;
+    btn.style.height = `${bh}px`;
 
     const img = document.createElement("img");
     img.alt = "自由ZINE 图标";
@@ -936,7 +981,6 @@
       }
     });
     iconsWall.appendChild(item);
-    randomIconPlacement(item);
   }
 
   function clearHomeIcons() {
@@ -946,6 +990,7 @@
   async function restoreHomeIconsFromStorage() {
     if (!iconsWall) return;
     if (currentViewingZineId) return;
+    setAppLoading(true, "加载书架…");
     try {
       const data = await apiJSON("/api/zines", { method: "GET" });
       const items = (data && data.items) || [];
@@ -989,146 +1034,164 @@
         }
       }
       showRuntimeError(e);
+    } finally {
+      setAppLoading(false);
     }
   }
 
   // ---------- Viewer ----------
   async function openViewer(zineId) {
+    const prevViewingId = currentViewingZineId;
     let zine = zines.find((z) => z.id === zineId);
     if (!zine) {
-      const stored = await loadZineFromStorage(zineId);
-      if (!stored) {
-        setViewerStatus("无法加载书籍（后端无数据或网络错误）");
-        showHome();
-        return;
+      setAppLoading(true, "加载书籍…");
+      try {
+        const stored = await loadZineFromStorage(zineId);
+        if (!stored) {
+          setViewerStatus("无法加载书籍（后端无数据或网络错误）");
+          showHome();
+          return;
+        }
+        zine = stored;
+        zines.push(zine);
+      } finally {
+        setAppLoading(false);
       }
-      zine = stored;
-      zines.push(zine);
     }
 
-    currentViewingZineId = zine.id;
-    exportInProgress = false; // allow UI
-    viewerOverlay.classList.remove("hidden");
-    homeView.classList.add("hidden");
-    designerView.classList.add("hidden");
-    viewerOverlay.classList.remove("single-mode");
+    setAppLoading(true, "渲染页面…");
+    try {
+      currentViewingZineId = zine.id;
+      viewerCachedPageCount = Math.max(0, Number(zine.pageCount) || 0);
+      exportInProgress = false; // allow UI
+      viewerOverlay.classList.remove("hidden");
+      homeView.classList.add("hidden");
+      designerView.classList.add("hidden");
+      viewerOverlay.classList.remove("single-mode");
 
-    document.body.style.overflow = "hidden";
-    viewerTitle.textContent = `自由ZINE · ${zine.pageCount} 页`;
-    viewerRail.innerHTML = "";
+      document.body.style.overflow = "hidden";
+      viewerTitle.textContent = `自由ZINE · ${zine.pageCount} 页`;
+      viewerRail.innerHTML = "";
 
-    // Mode & single index init
-    viewerMode = localStorage.getItem("free-zine:viewerMode") || "seamless";
-    viewerSinglePageIndex = 0;
-    localStorage.setItem("free-zine:viewerSingleIndex", "0");
+      // Mode & single-page index: keep index when flipping pages on the same book (do not reset every open).
+      viewerMode = localStorage.getItem("free-zine:viewerMode") || "seamless";
+      if (viewerMode === "single" && prevViewingId === zine.id) {
+        const fromStore = Number(localStorage.getItem("free-zine:viewerSingleIndex"));
+        const base = Number.isFinite(fromStore) ? fromStore : viewerSinglePageIndex;
+        viewerSinglePageIndex = Math.max(0, Math.min(viewerCachedPageCount - 1, base));
+      } else {
+        viewerSinglePageIndex = 0;
+      }
+      localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
 
-    // Sync mode UI
-    viewerModeSeamlessBtn?.classList.toggle("primary", viewerMode === "seamless");
-    viewerModeSingleBtn?.classList.toggle("primary", viewerMode === "single");
+      // Sync mode UI
+      viewerModeSeamlessBtn?.classList.toggle("primary", viewerMode === "seamless");
+      viewerModeSingleBtn?.classList.toggle("primary", viewerMode === "single");
 
-    const isSingle = viewerMode === "single";
-    viewerPrevPageBtn?.classList.toggle("hidden", !isSingle);
-    viewerNextPageBtn?.classList.toggle("hidden", !isSingle);
+      const isSingle = viewerMode === "single";
+      viewerPrevPageBtn?.classList.toggle("hidden", !isSingle);
+      viewerNextPageBtn?.classList.toggle("hidden", !isSingle);
 
-    // For single mode, we don't want horizontal scrolling.
-    viewerRail.classList.toggle("single-mode", isSingle);
+      viewerRail.classList.toggle("single-mode", isSingle);
 
-    // Admin delete visibility
-    viewerDeleteBtn.classList.toggle("hidden", !isAdminAuthed());
+      viewerDeleteBtn.classList.toggle("hidden", !isAdminAuthed());
 
-    viewerOverlay.tabIndex = 0;
-    viewerOverlay.focus();
+      viewerOverlay.tabIndex = 0;
+      viewerOverlay.focus();
 
-    const displayHeight = Math.min(720, Math.max(360, window.innerHeight - 140));
+      const displayHeight = Math.min(720, Math.max(360, window.innerHeight - 140));
 
-    const pageW = zine.pageWidthPx;
-    const pageH = zine.pageHeightPx;
-    const outputMultiplier = Math.min(2, Math.max(0.5, (displayHeight * 1.1) / pageH));
+      const pageW = Math.max(1, Number(zine.pageWidthPx) || 720);
+      const pageH = Math.max(1, Number(zine.pageHeightPx) || 720);
+      const outputMultiplier = Math.min(
+        2,
+        Math.max(0.5, (isSingle ? displayHeight * 1.25 : displayHeight * 1.1) / pageH)
+      );
 
-    // Cache page images in-memory for faster re-opens.
-    if (
-      !zine.pageImageCache ||
-      zine.pageImageCache.length !== zine.pageCount ||
-      zine.pageImageCacheMultiplier !== outputMultiplier
-    ) {
-      zine.pageImageCache = new Array(zine.pageCount).fill(null);
-      zine.pageImageCacheMultiplier = outputMultiplier;
-    }
+      if (
+        !zine.pageImageCache ||
+        zine.pageImageCache.length !== zine.pageCount ||
+        zine.pageImageCacheMultiplier !== outputMultiplier
+      ) {
+        zine.pageImageCache = new Array(zine.pageCount).fill(null);
+        zine.pageImageCacheMultiplier = outputMultiplier;
+      }
 
-    // Reuse a single temp canvas for performance.
-    const tempEl = document.createElement("canvas");
-    tempEl.width = pageW;
-    tempEl.height = pageH;
-    const tempCanvas = new fabric.Canvas(tempEl, { selection: false });
-    tempCanvas.setWidth(pageW);
-    tempCanvas.setHeight(pageH);
-    tempCanvas.backgroundColor = "#ffffff";
-    tempCanvas.requestRenderAll();
-
-    async function ensurePageImage(i) {
-      let dataURL = zine.pageImageCache[i];
-      if (dataURL) return dataURL;
-
-      tempCanvas.clear();
-      tempCanvas.setBackgroundColor("#ffffff", tempCanvas.renderAll.bind(tempCanvas));
+      const tempEl = document.createElement("canvas");
+      tempEl.width = pageW;
+      tempEl.height = pageH;
+      const tempCanvas = new fabric.Canvas(tempEl, { selection: false });
+      tempCanvas.setWidth(pageW);
+      tempCanvas.setHeight(pageH);
+      tempCanvas.backgroundColor = "#ffffff";
       tempCanvas.requestRenderAll();
 
-      const json = zine.pageStates[i];
-      if (json) {
-        await new Promise((resolve) => {
-          tempCanvas.loadFromJSON(json, () => {
-            tempCanvas.renderAll();
-            resolve();
+      async function ensurePageImage(i) {
+        let dataURL = zine.pageImageCache[i];
+        if (dataURL) return dataURL;
+
+        tempCanvas.clear();
+        tempCanvas.setBackgroundColor("#ffffff", tempCanvas.renderAll.bind(tempCanvas));
+        tempCanvas.requestRenderAll();
+
+        const json = zine.pageStates[i];
+        if (json) {
+          await new Promise((resolve) => {
+            tempCanvas.loadFromJSON(json, () => {
+              tempCanvas.renderAll();
+              resolve();
+            });
           });
-        });
-      } else {
-        tempCanvas.renderAll();
+        } else {
+          tempCanvas.renderAll();
+        }
+
+        dataURL = tempCanvas.toDataURL({ format: "png", multiplier: outputMultiplier });
+        zine.pageImageCache[i] = dataURL;
+        return dataURL;
       }
 
-      dataURL = tempCanvas.toDataURL({ format: "png", multiplier: outputMultiplier });
-      zine.pageImageCache[i] = dataURL;
-      return dataURL;
-    }
+      setViewerStatus("正在渲染页面，请稍候...");
 
-    setViewerStatus("正在渲染页面，请稍候...");
-
-    if (isSingle) {
-      const i = viewerSinglePageIndex;
-      setViewerStatus(`渲染第 ${i + 1} / ${zine.pageCount} 页...`);
-      const dataURL = await ensurePageImage(i);
-
-      const img = document.createElement("img");
-      img.alt = `第 ${i + 1} 页`;
-      img.src = dataURL;
-      img.style.height = `${displayHeight}px`;
-      img.style.borderLeft = "0";
-      img.style.scrollSnapAlign = "start";
-
-      const pageWrap = document.createElement("div");
-      pageWrap.className = "viewer-page";
-      pageWrap.appendChild(img);
-      viewerRail.appendChild(pageWrap);
-    } else {
-      for (let i = 0; i < zine.pageCount; i++) {
-        setViewerStatus(`渲染第 ${i + 1} / ${zine.pageCount} 页...`);
+      if (isSingle) {
+        const i = viewerSinglePageIndex;
+        setViewerStatus(`第 ${i + 1} / ${zine.pageCount} 页`);
         const dataURL = await ensurePageImage(i);
 
         const img = document.createElement("img");
+        img.className = "viewer-single-img";
         img.alt = `第 ${i + 1} 页`;
         img.src = dataURL;
-        img.style.height = `${displayHeight}px`;
-        if (i !== 0) img.style.borderLeft = "0";
-        img.style.scrollSnapAlign = "start";
+        img.decoding = "async";
 
-        const pageWrap = document.createElement("div");
-        pageWrap.className = "viewer-page";
-        pageWrap.appendChild(img);
-        viewerRail.appendChild(pageWrap);
+        const pageWrapEl = document.createElement("div");
+        pageWrapEl.className = "viewer-page";
+        pageWrapEl.appendChild(img);
+        viewerRail.appendChild(pageWrapEl);
+      } else {
+        for (let i = 0; i < zine.pageCount; i++) {
+          setViewerStatus(`渲染第 ${i + 1} / ${zine.pageCount} 页...`);
+          const dataURL = await ensurePageImage(i);
+
+          const img = document.createElement("img");
+          img.alt = `第 ${i + 1} 页`;
+          img.src = dataURL;
+          img.style.height = `${displayHeight}px`;
+          if (i !== 0) img.style.borderLeft = "0";
+          img.style.scrollSnapAlign = "start";
+
+          const pageWrapEl = document.createElement("div");
+          pageWrapEl.className = "viewer-page";
+          pageWrapEl.appendChild(img);
+          viewerRail.appendChild(pageWrapEl);
+        }
       }
-    }
 
-    if (tempCanvas.dispose) tempCanvas.dispose();
-    setViewerStatus("");
+      if (tempCanvas.dispose) tempCanvas.dispose();
+      setViewerStatus("");
+    } finally {
+      setAppLoading(false);
+    }
   }
 
   function closeViewer() {
@@ -1141,38 +1204,55 @@
 
   // ---------- Icon Generation ----------
   async function generateBookIcon(z) {
+    const pw = Math.max(1, Number(z.pageWidthPx) || 720);
+    const ph = Math.max(1, Number(z.pageHeightPx) || 720);
+    const pageAspect = pw / ph;
+
+    const maxSide = ICON_CANVAS_SIZE;
+    let iconW = maxSide;
+    let iconH = maxSide;
+    if (pageAspect >= 1) {
+      iconH = Math.max(72, Math.round(maxSide / pageAspect));
+    } else {
+      iconW = Math.max(72, Math.round(maxSide * pageAspect));
+    }
+
     const icon = document.createElement("canvas");
-    icon.width = ICON_CANVAS_SIZE;
-    icon.height = ICON_CANVAS_SIZE;
+    icon.width = iconW;
+    icon.height = iconH;
     const ctx = icon.getContext("2d");
 
-    // Micro rounded container.
-    const iconR = 20;
-    const pad = 14;
-    const coverX = pad;
-    const coverY = pad;
-    const coverSize = ICON_CANVAS_SIZE - pad * 2;
-    const coverR = 16; //微圆角：封面内圆角
+    const pad = 12;
+    const innerMaxW = iconW - pad * 2;
+    const innerMaxH = iconH - pad * 2;
+    let coverW = innerMaxW;
+    let coverH = Math.round(coverW / pageAspect);
+    if (coverH > innerMaxH) {
+      coverH = innerMaxH;
+      coverW = Math.round(coverH * pageAspect);
+    }
+    const coverX = pad + (innerMaxW - coverW) / 2;
+    const coverY = pad + (innerMaxH - coverH) / 2;
+    const coverR = Math.min(14, coverW / 8, coverH / 8);
+    const iconR = Math.min(18, iconW / 8, iconH / 8);
 
     ctx.fillStyle = "#ffffff";
-    ctx.clearRect(0, 0, ICON_CANVAS_SIZE, ICON_CANVAS_SIZE);
-    roundRect(ctx, pad - 1, pad - 1, ICON_CANVAS_SIZE - (pad - 1) * 2, ICON_CANVAS_SIZE - (pad - 1) * 2, iconR);
+    ctx.clearRect(0, 0, iconW, iconH);
+    roundRect(ctx, 0.5, 0.5, iconW - 1, iconH - 1, iconR);
     ctx.fill();
 
-    // Border (subtle)
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(15,23,42,.12)";
-    roundRect(ctx, pad - 1, pad - 1, ICON_CANVAS_SIZE - (pad - 1) * 2, ICON_CANVAS_SIZE - (pad - 1) * 2, iconR);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(15,23,42,.1)";
+    roundRect(ctx, 0.5, 0.5, iconW - 1, iconH - 1, iconR);
     ctx.stroke();
 
-    // Render only the first page ("首图").
     setStatus("生成封面图标：渲染第 1 页...");
     const tempEl = document.createElement("canvas");
-    tempEl.width = z.pageWidthPx;
-    tempEl.height = z.pageHeightPx;
+    tempEl.width = pw;
+    tempEl.height = ph;
     const tempCanvas = new fabric.Canvas(tempEl, { selection: false });
-    tempCanvas.setWidth(z.pageWidthPx);
-    tempCanvas.setHeight(z.pageHeightPx);
+    tempCanvas.setWidth(pw);
+    tempCanvas.setHeight(ph);
     tempCanvas.setBackgroundColor("#ffffff");
 
     const json0 = z.pageStates && z.pageStates[0] ? z.pageStates[0] : null;
@@ -1187,31 +1267,16 @@
       tempCanvas.renderAll();
     }
 
-    const coverDataURL = tempCanvas.toDataURL({ format: "png", multiplier: 0.32 });
+    const coverDataURL = tempCanvas.toDataURL({ format: "png", multiplier: 0.52 });
     if (tempCanvas.dispose) tempCanvas.dispose();
 
-    const img = await dataURLToImage(coverDataURL);
-
-    // Crop to a square area (like CSS `object-fit: cover`).
-    const pageAspect = z.pageWidthPx / z.pageHeightPx;
-    let dw = coverSize;
-    let dh = coverSize;
-    let dx = coverX;
-    let dy = coverY;
-
-    if (pageAspect >= 1) {
-      dh = coverSize / pageAspect;
-      dy = coverY + (coverSize - dh) / 2;
-    } else {
-      dw = coverSize * pageAspect;
-      dx = coverX + (coverSize - dw) / 2;
-    }
+    const coverImg = await dataURLToImage(coverDataURL);
 
     ctx.save();
     ctx.beginPath();
-    roundRectPath(ctx, coverX, coverY, coverSize, coverSize, coverR);
+    roundRectPath(ctx, coverX, coverY, coverW, coverH, coverR);
     ctx.clip();
-    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.drawImage(coverImg, coverX, coverY, coverW, coverH);
     ctx.restore();
 
     return icon.toDataURL("image/png");
@@ -1285,6 +1350,9 @@
           pageHeightPx: dims.hPx,
           defaultFontFamily: fontFamilySelect ? fontFamilySelect.value : "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial",
           defaultBgColor: bgColorInput ? bgColorInput.value : "#ffffff",
+          editorCanvasBorder: normalizeCanvasBorder(
+            (canvasBorderRadios.find((r) => r.checked) || {}).value || "gray"
+          ),
           pageStates: new Array(count).fill(null),
           pageImageCache: new Array(count).fill(null),
           fontScaleForPage: new Array(count).fill(getFontScale()),
@@ -1294,6 +1362,7 @@
 
         pageCount = count;
         currentPageIndex = 0;
+        syncCanvasBorderRadios();
         ensureMainCanvas(dims.wPx, dims.hPx);
 
         setStatus(`已创建：${count} 页 · 比例 ${aspect.label}`);
@@ -1501,8 +1570,7 @@
   viewerNextPageBtn?.addEventListener("click", () => {
     if (viewerMode !== "single") return;
     if (!currentViewingZineId) return;
-    const z = zines.find((x) => x.id === currentViewingZineId);
-    const maxIndex = z ? z.pageCount - 1 : viewerSinglePageIndex;
+    const maxIndex = Math.max(0, viewerCachedPageCount - 1);
     viewerSinglePageIndex = Math.max(0, Math.min(maxIndex, viewerSinglePageIndex + 1));
     localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
     openViewer(currentViewingZineId).catch(() => {});
@@ -1679,6 +1747,17 @@
     if (!isLoadingPage) draft.pageStates[currentPageIndex] = canvas.toJSON();
   });
 
+  canvasBorderRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      syncCanvasBorderOptionStyles();
+      if (!draft) return;
+      draft.editorCanvasBorder = normalizeCanvasBorder(radio.value);
+      applyEditorCanvasBorder();
+      if (!isLoadingPage) draft.pageStates[currentPageIndex] = canvas.toJSON();
+    });
+  });
+  syncCanvasBorderOptionStyles();
+
   // Ratio selection: add visual state without relying on :has() selector.
   function syncRatioSelectionStyles() {
     ratioRadios.forEach((radio) => {
@@ -1698,6 +1777,7 @@
   editorPanel.classList.add("hidden");
   setupPanel.classList.remove("hidden");
   syncLoginEntryUI();
+  syncCanvasBorderRadios();
 
   // Open a specific ZINE from share link.
   const hash = window.location.hash || "";

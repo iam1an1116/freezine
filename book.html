@@ -7,8 +7,15 @@
     <link rel="stylesheet" href="./style2.css" />
   </head>
   <body>
+    <div id="bookLoader" class="app-loader" aria-busy="true" aria-hidden="false">
+      <div class="app-loader-inner">
+        <div class="app-loader-ring" aria-hidden="true"></div>
+        <div id="bookLoaderText" class="app-loader-text">加载封面…</div>
+      </div>
+    </div>
+
     <div class="book-landing">
-      <div class="book-cover-wrap">
+      <div id="bookCoverWrap" class="book-cover-wrap is-loading">
         <img id="bookCoverImg" class="book-cover" alt="ZINE 封面" />
       </div>
       <div class="book-actions">
@@ -17,7 +24,7 @@
       <div id="bookHint" class="book-hint"></div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
     <script src="./book.js"></script>
   </body>
 </html>
-

@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="./style2.css" />
   </head>
   <body>
+    <div id="appLoader" class="app-loader hidden" aria-hidden="true" aria-busy="false">
+      <div class="app-loader-inner">
+        <div class="app-loader-ring" aria-hidden="true"></div>
+        <div id="appLoaderText" class="app-loader-text">加载中</div>
+      </div>
+    </div>
+
     <!-- Home -->
     <div id="homeView" class="view home-view" role="main">
       <button id="homeEnterBtn" class="circle-btn primary">
@@ -106,6 +113,23 @@
             <span class="control-label-inline">背景</span>
             <input id="bgColorInput" class="color-input" type="color" value="#ffffff" />
           </label>
+          <div class="control-inline canvas-border-control" role="group" aria-label="画布边框">
+            <span class="control-label-inline">画布边框</span>
+            <div class="canvas-border-options">
+              <label class="border-option">
+                <input type="radio" name="canvasBorder" value="gray" checked />
+                <span>灰</span>
+              </label>
+              <label class="border-option">
+                <input type="radio" name="canvasBorder" value="black" />
+                <span>黑</span>
+              </label>
+              <label class="border-option">
+                <input type="radio" name="canvasBorder" value="none" />
+                <span>无色</span>
+              </label>
+            </div>
+          </div>
           <div id="imgSizeInfo" class="control-inline img-size-info hidden">图片尺寸: -</div>
           <input id="imageFileInput" type="file" accept="image/*" hidden />
         </div>
