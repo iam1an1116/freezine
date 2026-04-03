@@ -60,6 +60,7 @@ def _to_row(payload: dict[str, Any], zid: str) -> dict[str, Any]:
       "pageStates": payload.get("pageStates"),
       "fontScaleForPage": payload.get("fontScaleForPage"),
       "editorCanvasBorder": payload.get("editorCanvasBorder"),
+      "defaultTextColor": payload.get("defaultTextColor"),
     },
   }
 
@@ -80,6 +81,7 @@ def _row_to_payload(row: dict[str, Any]) -> dict[str, Any]:
     "pageStates": data.get("pageStates") or [],
     "fontScaleForPage": data.get("fontScaleForPage") or [],
     "editorCanvasBorder": data.get("editorCanvasBorder") or "gray",
+    "defaultTextColor": data.get("defaultTextColor") or "#0f172a",
   }
 
 

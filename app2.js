@@ -37,6 +37,7 @@
   const fontScaleText = document.getElementById("fontScaleText");
 
   const fontFamilySelect = document.getElementById("fontFamilySelect");
+  const fontColorInput = document.getElementById("fontColorInput");
   const bgColorInput = document.getElementById("bgColorInput");
   const canvasBorderRadios = Array.from(document.querySelectorAll('input[name="canvasBorder"]'));
 
@@ -102,6 +103,8 @@
   let viewerSinglePageIndex = 0;
   let viewerCachedPageCount = 0;
   let appLoaderDepth = 0;
+  /** -1 上一页, +1 下一页, 0 无方向（首次进入等） */
+  let viewerSingleSwapDir = 0;
 
   function setAppLoading(on, message) {
     if (!appLoader) return;
@@ -191,6 +194,37 @@
     const x = Number(n);
     if (!Number.isFinite(x)) return min;
     return Math.max(min, Math.min(max, Math.round(x)));
+  }
+
+  const MAX_ZINE_PAGES = 36;
+
+  function normalizeTextHex(v) {
+    const s = typeof v === "string" ? v.trim() : "";
+    if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+    return "#0f172a";
+  }
+
+  function fillToHex(fill) {
+    if (fill == null) return null;
+    if (typeof fill === "string") {
+      const t = fill.trim();
+      if (t.startsWith("#") && t.length >= 7) return normalizeTextHex(t.slice(0, 7));
+      const m = t.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i);
+      if (m) {
+        const r = Math.max(0, Math.min(255, Number(m[1])));
+        const g = Math.max(0, Math.min(255, Number(m[2])));
+        const b = Math.max(0, Math.min(255, Number(m[3])));
+        const to2 = (n) => n.toString(16).padStart(2, "0");
+        return `#${to2(r)}${to2(g)}${to2(b)}`;
+      }
+    }
+    return null;
+  }
+
+  function bookLandingShareURL(zid) {
+    const base = new URL("book.html", window.location.href);
+    base.hash = `zine=${encodeURIComponent(zid)}`;
+    return base.href;
   }
 
   function getSelectedRatio() {
@@ -316,6 +350,14 @@
     const h = Math.max(1, Math.round((obj.height || 0) * (obj.scaleY || 1)));
     imgSizeInfo.classList.remove("hidden");
     imgSizeInfo.textContent = `图片尺寸: ${w} x ${h}px`;
+  }
+
+  function syncFontColorFromCanvasSelection() {
+    if (!fontColorInput || !canvas) return;
+    const obj = canvas.getActiveObject();
+    if (!obj || obj.type !== "textbox") return;
+    const hex = fillToHex(obj.fill);
+    if (hex) fontColorInput.value = hex;
   }
 
   function applyAlignmentSnapping(obj, bestDx, bestDy) {
@@ -475,6 +517,8 @@
       canvas.on("selection:updated", updateImageSizeInfo);
       canvas.on("object:scaling", updateImageSizeInfo);
       canvas.on("object:modified", updateImageSizeInfo);
+      canvas.on("selection:created", syncFontColorFromCanvasSelection);
+      canvas.on("selection:updated", syncFontColorFromCanvasSelection);
     }
     // Force-sync both Fabric internal size and DOM CSS size.
     canvas.setDimensions({ width: wPx, height: hPx }, { backstoreOnly: false });
@@ -541,6 +585,7 @@
 
     isLoadingPage = false;
     updateEditorButtons();
+    syncFontColorFromCanvasSelection();
   }
 
   function saveCurrentPageNow() {
@@ -583,7 +628,10 @@
         (fontFamilySelect ? fontFamilySelect.value : undefined) ||
         "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial",
       fontSize,
-      fill: "#0f172a",
+      fill:
+        (fontColorInput && normalizeTextHex(fontColorInput.value)) ||
+        (draft && normalizeTextHex(draft.defaultTextColor)) ||
+        "#0f172a",
       width,
       textAlign: "left",
       editable: true,
@@ -815,6 +863,7 @@
   }
 
   function showHome() {
+    document.documentElement.classList.remove("freezine-boot-reader");
     designerView.classList.add("hidden");
     viewerOverlay.classList.add("hidden");
     homeView.classList.remove("hidden");
@@ -905,6 +954,7 @@
       fontScaleForPage: z.fontScaleForPage,
       defaultFontFamily: z.defaultFontFamily,
       defaultBgColor: z.defaultBgColor,
+      defaultTextColor: normalizeTextHex(z.defaultTextColor || "#0f172a"),
       iconDataURL: z.iconDataURL,
       editorCanvasBorder: normalizeCanvasBorder(z.editorCanvasBorder),
     };
@@ -1166,6 +1216,12 @@
 
         const pageWrapEl = document.createElement("div");
         pageWrapEl.className = "viewer-page";
+        const dir = viewerSingleSwapDir;
+        viewerSingleSwapDir = 0;
+        if (dir < 0) pageWrapEl.classList.add("swap-from-left");
+        else if (dir > 0) pageWrapEl.classList.add("swap-from-right");
+        else pageWrapEl.classList.add("swap-enter-soft");
+
         pageWrapEl.appendChild(img);
         viewerRail.appendChild(pageWrapEl);
       } else {
@@ -1189,6 +1245,7 @@
 
       if (tempCanvas.dispose) tempCanvas.dispose();
       setViewerStatus("");
+      document.documentElement.classList.remove("freezine-boot-reader");
     } finally {
       setAppLoading(false);
     }
@@ -1313,7 +1370,7 @@
   }
 
   function startEditing() {
-    const count = clampInt(pageCountInput.value, 1, 50);
+    const count = clampInt(pageCountInput.value, 1, MAX_ZINE_PAGES);
     const aspect = getSelectedRatio();
     startBtn.disabled = true;
 
@@ -1350,6 +1407,7 @@
           pageHeightPx: dims.hPx,
           defaultFontFamily: fontFamilySelect ? fontFamilySelect.value : "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial",
           defaultBgColor: bgColorInput ? bgColorInput.value : "#ffffff",
+          defaultTextColor: fontColorInput ? normalizeTextHex(fontColorInput.value) : "#0f172a",
           editorCanvasBorder: normalizeCanvasBorder(
             (canvasBorderRadios.find((r) => r.checked) || {}).value || "gray"
           ),
@@ -1562,6 +1620,7 @@
   viewerPrevPageBtn?.addEventListener("click", () => {
     if (viewerMode !== "single") return;
     if (!currentViewingZineId) return;
+    viewerSingleSwapDir = -1;
     viewerSinglePageIndex = Math.max(0, viewerSinglePageIndex - 1);
     localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
     openViewer(currentViewingZineId).catch(() => {});
@@ -1571,6 +1630,7 @@
     if (viewerMode !== "single") return;
     if (!currentViewingZineId) return;
     const maxIndex = Math.max(0, viewerCachedPageCount - 1);
+    viewerSingleSwapDir = 1;
     viewerSinglePageIndex = Math.max(0, Math.min(maxIndex, viewerSinglePageIndex + 1));
     localStorage.setItem("free-zine:viewerSingleIndex", String(viewerSinglePageIndex));
     openViewer(currentViewingZineId).catch(() => {});
@@ -1671,7 +1731,7 @@
   viewerShareBtn.addEventListener("click", async () => {
     const zid = currentViewingZineId;
     if (!zid) return;
-    const shareURL = `${window.location.origin}${window.location.pathname}#zine=${encodeURIComponent(zid)}`;
+    const shareURL = bookLandingShareURL(zid);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareURL);
@@ -1747,6 +1807,19 @@
     if (!isLoadingPage) draft.pageStates[currentPageIndex] = canvas.toJSON();
   });
 
+  fontColorInput?.addEventListener("input", () => {
+    if (!draft || !canvas) return;
+    const col = normalizeTextHex(fontColorInput.value);
+    draft.defaultTextColor = col;
+    const obj = canvas.getActiveObject();
+    if (obj && obj.type === "textbox") {
+      obj.set("fill", col);
+      obj.setCoords();
+      canvas.requestRenderAll();
+    }
+    if (!isLoadingPage) draft.pageStates[currentPageIndex] = canvas.toJSON();
+  });
+
   canvasBorderRadios.forEach((radio) => {
     radio.addEventListener("change", () => {
       syncCanvasBorderOptionStyles();
@@ -1787,9 +1860,12 @@
     const stored = await loadZineFromStorage(zineId);
     if (stored) {
       zines = [stored];
-      openViewer(zineId).catch(() => {});
+      openViewer(zineId).catch(() => {
+        showHome();
+      });
       return;
     }
+    document.documentElement.classList.remove("freezine-boot-reader");
   }
   showHome();
 })();

@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>自由ZINE</title>
+    <script>
+      (function () {
+        try {
+          if ((location.hash || "").indexOf("zine=") !== -1) {
+            document.documentElement.classList.add("freezine-boot-reader");
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="stylesheet" href="./style2.css" />
   </head>
   <body>
@@ -38,7 +47,7 @@
 
           <label class="control">
             <span class="control-label">空白页数量</span>
-            <input id="pageCountInput" type="number" min="1" max="50" value="3" />
+            <input id="pageCountInput" type="number" min="1" max="36" value="3" />
           </label>
 
           <label class="control">
@@ -99,15 +108,27 @@
           </div>
           <label class="control-inline" aria-label="字体">
             <span class="control-label-inline">字体</span>
-            <select id="fontFamilySelect" class="control-select">
-              <option value="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Arial" selected>
+            <select id="fontFamilySelect" class="control-select wide-select">
+              <option value="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei&quot;, Arial" selected>
                 无衬线
               </option>
-              <option value="Georgia, serif">衬线</option>
+              <option value="Georgia, &quot;Songti SC&quot;, &quot;SimSun&quot;, serif">衬线</option>
+              <option value="&quot;Songti SC&quot;, &quot;SimSun&quot;, &quot;NSimSun&quot;, serif">宋体</option>
+              <option value="&quot;Kaiti SC&quot;, &quot;STKaiti&quot;, &quot;KaiTi&quot;, serif">楷体</option>
+              <option value="&quot;FangSong&quot;, &quot;STFangsong&quot;, serif">仿宋</option>
+              <option value="&quot;Hiragino Mincho ProN&quot;, &quot;Songti SC&quot;, serif">明朝体</option>
               <option value="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, &quot;Liberation Mono&quot;, &quot;Courier New&quot;, monospace">
                 等宽
               </option>
+              <option value="&quot;Arial Rounded MT Bold&quot;, &quot;M PLUS Rounded 1c&quot;, &quot;Hiragino Maru Gothic ProN&quot;, ui-rounded, system-ui, sans-serif">
+                圆体
+              </option>
+              <option value="&quot;Comic Sans MS&quot;, &quot;Chalkboard SE&quot;, cursive, sans-serif">手写风</option>
             </select>
+          </label>
+          <label class="control-inline" aria-label="文字颜色">
+            <span class="control-label-inline">字色</span>
+            <input id="fontColorInput" class="color-input" type="color" value="#0f172a" />
           </label>
           <label class="control-inline" aria-label="背景颜色">
             <span class="control-label-inline">背景</span>

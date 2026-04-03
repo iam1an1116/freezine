@@ -12,6 +12,12 @@
 
 *{ box-sizing: border-box; }
 html, body{ height: 100%; }
+
+/* 从封面页带 #zine= 进入时避免先闪出主页 */
+html.freezine-boot-reader #homeView{
+  visibility: hidden;
+}
+
 body{
   margin: 0;
   background: var(--bg);
@@ -81,8 +87,16 @@ body{
   justify-content: center;
   align-content: flex-start;
   gap: 22px 28px;
-  padding: 120px 20px 48px;
+  padding: 24px 20px 48px 56px;
   -webkit-overflow-scrolling: touch;
+}
+/* 顶部留白：避免图标叠到中央「制作」按钮 */
+.icons-wall::before{
+  content: "";
+  flex: 0 0 100%;
+  width: 100%;
+  height: clamp(160px, 32vh, 300px);
+  pointer-events: none;
 }
 
 #homeEnterBtn{
@@ -321,6 +335,10 @@ input[type="text"]{
   font-weight: 800;
   background: transparent;
   color: var(--text);
+  max-width: 220px;
+}
+.control-select.wide-select{
+  max-width: min(280px, 70vw);
 }
 .color-input{
   width: 44px;
@@ -493,6 +511,46 @@ input[type="text"]{
   object-fit: contain;
   box-shadow: 0 12px 40px rgba(15,23,42,.08);
   border-radius: 4px;
+}
+
+@keyframes viewerSingleInFromRight{
+  from{
+    opacity: 0;
+    transform: translateX(22px);
+  }
+  to{
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes viewerSingleInFromLeft{
+  from{
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to{
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes viewerSingleInSoft{
+  from{
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to{
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.viewer-rail.single-mode .viewer-page.swap-from-right{
+  animation: viewerSingleInFromRight .32s cubic-bezier(.22, 1, .36, 1) both;
+}
+.viewer-rail.single-mode .viewer-page.swap-from-left{
+  animation: viewerSingleInFromLeft .32s cubic-bezier(.22, 1, .36, 1) both;
+}
+.viewer-rail.single-mode .viewer-page.swap-enter-soft{
+  animation: viewerSingleInSoft .28s ease both;
 }
 
 /* Admin login */
