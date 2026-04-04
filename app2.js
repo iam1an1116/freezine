@@ -949,7 +949,9 @@
       pageCount: z.pageCount,
       aspect: z.aspect,
       pageWidthPx: z.pageWidthPx,
+      pageHeight: z.pageHeight,
       pageHeightPx: z.pageHeightPx,
+      author: z.author || "匿名",
       pageStates: z.pageStates,
       fontScaleForPage: z.fontScaleForPage,
       defaultFontFamily: z.defaultFontFamily,
@@ -1397,9 +1399,10 @@
         // Create draft
         draft = {
           id: crypto.randomUUID
-            ? crypto.randomUUID()
+            ? crypto.appendUUID()
             : String(Date.now()) + Math.random().toString(16).slice(2),
           title: (bookTitleInput && bookTitleInput.value ? bookTitleInput.value.trim() : "") || "未命名",
+          author: (authorInput && authorInput.value ? authorInput.value.trim() : "") || "匿名",
           createdAt: Date.now(),
           pageCount: count,
           aspect: { w: aspect.w, h: aspect.h, label: aspect.label },
