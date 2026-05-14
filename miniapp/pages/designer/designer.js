@@ -487,10 +487,19 @@ Page({
     wx.canvasToTempFilePath({
       canvas,
       success: res => {
-        // reset canvas
-        canvas.width = origW * dpr;
-        canvas.height = origH * dpr;
-        resolve(res.tempFilePath);
+        // Convert temp file to base64 data URL so it persists after session
+        const fs = wx.getFileSystemManager();
+        try {
+          const b64 = fs.readFileSync(res.tempFilePath, 'base64');
+          const dataURL = 'data:image/png;base64,' + b64;
+          canvas.width = origW * dpr;
+          canvas.height = origH * dpr;
+          resolve(dataURL);
+        } catch (e) {
+          canvas.width = origW * dpr;
+          canvas.height = origH * dpr;
+          resolve(res.tempFilePath); // fallback
+        }
       },
       fail: () => {
         canvas.width = origW * dpr;

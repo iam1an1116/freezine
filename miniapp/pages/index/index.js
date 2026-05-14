@@ -12,6 +12,7 @@ Page({
   },
 
   _placedRects: [],
+  _loading: false,
 
   onLoad() {
     this.setData({ admin: auth.isAdmin() });
@@ -20,13 +21,15 @@ Page({
 
   onShow() {
     this.setData({ admin: auth.isAdmin() });
-    if (this.data.icons.length === 0) {
+    if (this.data.icons.length === 0 && !this._loading) {
       this._loadIcons();
     }
   },
 
   // ---------- 加载图标 ----------
   async _loadIcons() {
+    if (this._loading) return;
+    this._loading = true;
     wx.showNavigationBarLoading();
     try {
       const res = await api.listZines();
@@ -50,6 +53,7 @@ Page({
       this.setData({ status: '加载失败，下拉刷新重试' });
     } finally {
       wx.hideNavigationBarLoading();
+      this._loading = false;
     }
   },
 
@@ -73,12 +77,17 @@ Page({
     const vw = wx.getSystemInfoSync().windowWidth;
     const vh = wx.getSystemInfoSync().windowHeight;
     const obstacles = this._getObstacles();
-    const pad = 14;
+    const pad = 16;
 
-    for (let i = 0; i < 300; i++) {
-      const left = pad + Math.random() * (vw - elW - pad * 2);
-      const top = pad + Math.random() * (vh - elH - pad * 2);
-      const cand = { left: left - pad, top: top - pad, right: left + elW + pad, bottom: top + elH + pad };
+    // Clamp element size to fit viewport
+    const maxW = Math.min(elW, vw - pad * 2);
+    const maxH = Math.min(elH, vh - pad * 2);
+
+    for (let i = 0; i < 500; i++) {
+      const left = pad + Math.random() * Math.max(0, vw - maxW - pad * 2);
+      const top = pad + Math.random() * Math.max(0, vh - maxH - pad * 2);
+      if (isNaN(left) || isNaN(top)) continue;
+      const cand = { left: left - pad, top: top - pad, right: left + maxW + pad, bottom: top + maxH + pad };
 
       let hit = false;
       for (const o of obstacles) { if (this._overlap(cand, o)) { hit = true; break; } }
@@ -89,7 +98,10 @@ Page({
       this._placedRects.push(cand);
       return { left: Math.round(left), top: Math.round(top) };
     }
-    return { left: Math.round(pad + Math.random() * (vw - elW - pad * 2)), top: Math.round(pad + Math.random() * (vh - elH - pad * 2)) };
+    // Fallback: place in a corner area with some randomness
+    const fl = pad + Math.random() * Math.max(0, vw - maxW - pad * 2);
+    const ft = pad + Math.random() * Math.max(0, vh - maxH - pad * 2);
+    return { left: Math.round(isNaN(fl) ? pad : fl), top: Math.round(isNaN(ft) ? pad : ft) };
   },
 
   // ---------- 事件 ----------
@@ -99,7 +111,7 @@ Page({
 
   onIconTap(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: '/pages/viewer/viewer?id=' + encodeURIComponent(id) });
+    wx.navigateTo({ url: '/pages/book/book?zine=' + encodeURIComponent(id) });
   },
 
   onLoginTap() {
