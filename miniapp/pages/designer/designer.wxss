@@ -1,0 +1,167 @@
+/* 设计器 */
+.designer-view {
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.designer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  border-bottom: 1px solid #f1f5f9;
+}
+.designer-brand {
+  font-weight: 950;
+  font-size: 30rpx;
+  color: #111827;
+}
+
+.panel {
+  flex: 1;
+  padding: 24rpx;
+  overflow-y: auto;
+}
+
+/* 设置面板 */
+.setup-row {
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+.control { display: flex; flex-direction: column; gap: 8rpx; }
+.control-label {
+  font-weight: 700;
+  font-size: 26rpx;
+  color: #475569;
+}
+.control-input {
+  border: 1px solid #e5e7eb;
+  border-radius: 14rpx;
+  padding: 18rpx 20rpx;
+  font-size: 28rpx;
+  background: #fafafa;
+}
+.ratio-group {
+  display: flex;
+  gap: 14rpx;
+  flex-wrap: wrap;
+}
+.ratio-opt {
+  border: 1px solid #e5e7eb;
+  border-radius: 14rpx;
+  padding: 14rpx 24rpx;
+  font-size: 26rpx;
+  font-weight: 650;
+}
+.ratio-opt.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+.setup-actions {
+  margin-top: 36rpx;
+  text-align: center;
+}
+
+/* 编辑面板 */
+.editor-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 14rpx;
+  gap: 14rpx;
+}
+
+.editor-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+}
+.page-indicator {
+  font-weight: 700;
+  font-size: 28rpx;
+  min-width: 200rpx;
+  text-align: center;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border-radius: 18rpx;
+  overflow: hidden;
+  min-height: 500rpx;
+}
+
+.zine-canvas {
+  border: 1px solid #e5e7eb;
+  border-radius: 8rpx;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(15,23,42,.06);
+}
+
+/* 样式控制 */
+.style-bar {
+  white-space: nowrap;
+  padding: 10rpx 0;
+}
+.style-row {
+  display: inline-flex;
+  gap: 18rpx;
+  padding: 0 14rpx;
+}
+.style-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
+.style-label {
+  font-size: 22rpx;
+  font-weight: 650;
+  color: #64748b;
+  white-space: nowrap;
+}
+.style-val {
+  font-size: 22rpx;
+  color: #475569;
+  min-width: 60rpx;
+}
+.style-pick {
+  font-size: 24rpx;
+  color: #4f46e5;
+  font-weight: 650;
+  border: 1px solid #e5e7eb;
+  border-radius: 10rpx;
+  padding: 8rpx 16rpx;
+}
+.color-input {
+  border: 1px solid #e5e7eb;
+  border-radius: 10rpx;
+  padding: 8rpx 12rpx;
+  font-size: 22rpx;
+}
+
+.scale-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18rpx;
+}
+
+.editor-actions {
+  text-align: center;
+  margin-top: 8rpx;
+}

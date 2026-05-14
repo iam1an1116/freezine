@@ -1,0 +1,17 @@
+<!-- 封面/分享页 -->
+<view class="book-view">
+  <view class="book-card" wx:if="{{!loading}}">
+    <image
+      class="book-cover"
+      src="{{iconDataURL}}"
+      mode="aspectFit"
+      style="width: 400rpx; height: 400rpx;"
+    />
+    <text class="book-title">{{title || '自由ZINE'}}</text>
+    <text class="book-page-count" wx:if="{{pageCount}}">共 {{pageCount}} 页</text>
+    <button class="circle-btn primary" bindtap="onRead">阅览</button>
+  </view>
+  <view class="book-loading" wx:if="{{loading}}">
+    <text>加载封面…</text>
+  </view>
+</view>

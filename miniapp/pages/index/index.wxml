@@ -1,0 +1,55 @@
+<!-- 首页 -->
+<view class="home-view">
+  <!-- 图标墙 -->
+  <view class="icons-wall" id="iconsWall">
+    <block wx:for="{{icons}}" wx:key="id">
+      <view
+        class="zine-item"
+        data-id="{{item.id}}"
+        style="left: {{item._left}}px; top: {{item._top}}px;"
+        bindtap="onIconTap"
+      >
+        <view
+          class="zine-icon-btn"
+          style="width: {{item._bw}}px; height: {{item._bh}}px;"
+        >
+          <image
+            class="zine-icon-img"
+            src="{{item.iconDataURL}}"
+            mode="aspectFill"
+            style="width: {{item._bw}}px; height: {{item._bh}}px;"
+          />
+        </view>
+        <view class="zine-name">{{item.title || '未命名'}}</view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 中央按钮 -->
+  <button class="circle-btn primary home-enter-btn" bindtap="onEnter">现在，设计你的ZINE</button>
+
+  <!-- 左下角管理员登录 -->
+  <view class="login-entry {{admin ? 'authed' : ''}}" bindtap="onLoginTap"></view>
+
+  <!-- 登录弹窗 -->
+  <view class="login-modal {{showLogin ? '' : 'hidden'}}" catchtap="onCancelLogin">
+    <view class="login-card" catchtap="stopProp">
+      <view class="login-title">管理员登录</view>
+      <view class="login-field">
+        <text class="login-label">账号</text>
+        <input class="login-input" value="{{loginUser}}" bindinput="onUserInput" placeholder="账号" />
+      </view>
+      <view class="login-field">
+        <text class="login-label">密码</text>
+        <input class="login-input" value="{{loginPass}}" bindinput="onPassInput" password placeholder="密码" />
+      </view>
+      <view class="login-actions">
+        <button class="circle-btn primary" bindtap="onLoginSubmit">登录</button>
+        <button class="circle-btn" bindtap="onCancelLogin">取消</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载/状态 -->
+  <view class="status-bar" wx:if="{{status}}">{{status}}</view>
+</view>

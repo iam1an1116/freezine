@@ -1,0 +1,30 @@
+.book-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #fff;
+}
+.book-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28rpx;
+}
+.book-cover {
+  border-radius: 24rpx;
+  box-shadow: 0 12px 48px rgba(15,23,42,.1);
+}
+.book-title {
+  font-weight: 950;
+  font-size: 36rpx;
+  color: #111827;
+}
+.book-page-count {
+  font-size: 26rpx;
+  color: #64748b;
+}
+.book-loading {
+  color: #94a3b8;
+  font-size: 28rpx;
+}

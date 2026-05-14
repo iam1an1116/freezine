@@ -1,0 +1,124 @@
+<!-- 设计器 -->
+<view class="designer-view">
+  <!-- 顶部栏 -->
+  <view class="designer-top">
+    <text class="designer-brand">自由ZINE</text>
+    <button class="circle-btn small" bindtap="onBackHome">主页</button>
+  </view>
+
+  <!-- ========== 设置面板 ========== -->
+  <view class="panel setup-panel {{editorVisible ? 'hidden' : ''}}">
+    <view class="setup-row">
+      <view class="control">
+        <text class="control-label">书籍名称</text>
+        <input class="control-input" value="{{bookTitle}}" bindinput="onTitleInput" maxlength="40" placeholder="输入书名（可选）" />
+      </view>
+      <view class="control">
+        <text class="control-label">空白页数量</text>
+        <input class="control-input" type="number" value="{{pageCount}}" bindinput="onPageCountInput" placeholder="1-36" />
+      </view>
+      <view class="control">
+        <text class="control-label">页面比例</text>
+        <view class="ratio-group">
+          <label class="ratio-opt {{ratio === '1:1' ? 'active' : ''}}" bindtap="onRatioTap" data-v="1:1">
+            <text>1:1</text>
+          </label>
+          <label class="ratio-opt {{ratio === '5:4' ? 'active' : ''}}" bindtap="onRatioTap" data-v="5:4">
+            <text>5:4</text>
+          </label>
+          <label class="ratio-opt {{ratio === '3:2' ? 'active' : ''}}" bindtap="onRatioTap" data-v="3:2">
+            <text>3:2</text>
+          </label>
+          <label class="ratio-opt {{ratio === '4:5' ? 'active' : ''}}" bindtap="onRatioTap" data-v="4:5">
+            <text>4:5</text>
+          </label>
+          <label class="ratio-opt {{ratio === '2:3' ? 'active' : ''}}" bindtap="onRatioTap" data-v="2:3">
+            <text>2:3</text>
+          </label>
+        </view>
+      </view>
+    </view>
+    <view class="setup-actions">
+      <button class="circle-btn primary" bindtap="onStart">生成并开始制作</button>
+    </view>
+  </view>
+
+  <!-- ========== 编辑面板 ========== -->
+  <view class="panel editor-panel {{editorVisible ? '' : 'hidden'}}">
+    <!-- 页面导航 -->
+    <view class="editor-nav">
+      <button class="circle-btn small" bindtap="onPrevPage">上一页</button>
+      <text class="page-indicator">第 {{curPage + 1}} / {{pageCount}} 页</text>
+      <button class="circle-btn small" bindtap="onNextPage">下一页</button>
+    </view>
+
+    <!-- 编辑工具栏 -->
+    <view class="toolbar">
+      <button class="circle-btn small" bindtap="onAddText">添加文字</button>
+      <button class="circle-btn small" bindtap="onAddImage">添加图片</button>
+      <button class="circle-btn small" bindtap="onDelActive">删除选中</button>
+      <button class="circle-btn small danger" bindtap="onClearPage">清空本页</button>
+    </view>
+
+    <!-- Canvas 区域 -->
+    <view class="canvas-wrap" id="canvasWrap">
+      <canvas
+        type="2d"
+        id="zineCanvas"
+        class="zine-canvas"
+        style="width: {{canvasStyleW}}px; height: {{canvasStyleH}}px;"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd"
+      ></canvas>
+    </view>
+
+    <!-- 样式控制 -->
+    <scroll-view class="style-bar" scroll-x>
+      <view class="style-row">
+        <view class="style-item">
+          <text class="style-label">文字大小</text>
+          <slider
+            min="0.6" max="2.2" step="0.05" value="{{fontScale}}"
+            bindchange="onFontScale" block-size="16"
+            style="width: 180rpx;"
+          />
+          <text class="style-val">{{fontScaleText}}</text>
+        </view>
+        <view class="style-item">
+          <text class="style-label">字体</text>
+          <picker value="{{fontFamilyIdx}}" range="{{fontFamilies}}" bindchange="onFontPick">
+            <text class="style-pick">{{fontFamilies[fontFamilyIdx]}}</text>
+          </picker>
+        </view>
+        <view class="style-item">
+          <text class="style-label">字色</text>
+          <input class="color-input" type="text" value="{{fontColor}}" bindinput="onFontColorInput" style="width:120rpx;" />
+        </view>
+        <view class="style-item">
+          <text class="style-label">背景</text>
+          <input class="color-input" type="text" value="{{bgColor}}" bindinput="onBgColorInput" style="width:120rpx;" />
+        </view>
+        <view class="style-item">
+          <text class="style-label">边框</text>
+          <picker value="{{borderIdx}}" range="{{borderOptions}}" bindchange="onBorderPick">
+            <text class="style-pick">{{borderOptions[borderIdx]}}</text>
+          </picker>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 缩放按钮 -->
+    <view class="scale-bar" wx:if="{{activeObj}}">
+      <button class="circle-btn small" bindtap="onScaleDown">缩小</button>
+      <text class="style-val">{{activeObjScale}}x</text>
+      <button class="circle-btn small" bindtap="onScaleUp">放大</button>
+    </view>
+
+    <!-- 操作 -->
+    <view class="editor-actions">
+      <button class="circle-btn primary" bindtap="onFinish">完成并封装成图标</button>
+      <text class="status">{{status}}</text>
+    </view>
+  </view>
+</view>

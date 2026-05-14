@@ -1,0 +1,60 @@
+.viewer-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f8fafc;
+}
+.viewer-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border-bottom: 1px solid #f1f5f9;
+}
+.viewer-title {
+  font-weight: 950;
+  font-size: 30rpx;
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 16rpx;
+}
+.viewer-top-right {
+  display: flex;
+  gap: 12rpx;
+}
+.viewer-status {
+  text-align: center;
+  color: #475569;
+  font-size: 24rpx;
+  padding: 12rpx;
+}
+.viewer-scroll {
+  flex: 1;
+}
+.viewer-page-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 20rpx 0;
+}
+.viewer-page-img {
+  display: block;
+  border-radius: 8rpx;
+  box-shadow: 0 4px 20px rgba(15,23,42,.08);
+}
+.viewer-single {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+}
+.viewer-single-nav {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}

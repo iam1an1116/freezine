@@ -1,0 +1,52 @@
+<!-- 阅览器 -->
+<view class="viewer-view">
+  <!-- 顶部栏 -->
+  <view class="viewer-topbar">
+    <button class="circle-btn small" bindtap="onClose">关闭</button>
+    <text class="viewer-title">{{title || '阅读'}}</text>
+    <view class="viewer-top-right">
+      <button class="circle-btn small" bindtap="onToggleMode">{{modeLabel}}</button>
+      <button class="circle-btn small" wx:if="{{isAdmin}}" bindtap="onDelete">删除</button>
+    </view>
+  </view>
+
+  <!-- 状态 -->
+  <view class="viewer-status" wx:if="{{status}}">{{status}}</view>
+
+  <!-- 无缝阅览模式 -->
+  <scroll-view
+    wx:if="{{mode === 'seamless'}}"
+    class="viewer-scroll"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view
+      wx:for="{{pageImages}}"
+      wx:key="index"
+      class="viewer-page-wrap"
+    >
+      <image
+        class="viewer-page-img"
+        src="{{item}}"
+        mode="widthFix"
+        style="width: {{displayW}}px;"
+      />
+    </view>
+  </scroll-view>
+
+  <!-- 单张阅览模式 -->
+  <view wx:if="{{mode === 'single'}}" class="viewer-single">
+    <image
+      class="viewer-page-img"
+      src="{{pageImages[curPage]}}"
+      mode="widthFix"
+      style="width: {{displayW}}px;"
+    />
+    <view class="viewer-single-nav">
+      <button class="circle-btn small" bindtap="onPrevPage" disabled="{{curPage <= 0}}">上一页</button>
+      <text class="page-indicator">{{curPage + 1}} / {{pageImages.length}}</text>
+      <button class="circle-btn small" bindtap="onNextPage" disabled="{{curPage >= pageImages.length - 1}}">下一页</button>
+    </view>
+  </view>
+</view>

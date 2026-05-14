@@ -1,0 +1,62 @@
+page {
+  --bg: #ffffff;
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #e5e7eb;
+  --shadow: rgba(15, 23, 42, .08);
+  --accent: #111827;
+  --accent2: #4f46e5;
+  --danger: #ef4444;
+
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  height: 100%;
+}
+
+.hidden { display: none !important; }
+
+.circle-btn {
+  border: 1px solid #e5e7eb;
+  background: transparent;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 22rpx 28rpx;
+  font-weight: 650;
+  font-size: 26rpx;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+.circle-btn:active {
+  background: rgba(15,23,42,.06);
+  transform: translateY(1px);
+}
+.circle-btn.primary {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+.circle-btn.danger {
+  background: rgba(239, 68, 68, .08);
+  border-color: rgba(239, 68, 68, .35);
+  color: #b91c1c;
+}
+.circle-btn.small {
+  padding: 16rpx 22rpx;
+  font-size: 22rpx;
+}
+
+/* status bar */
+.status {
+  color: #475569;
+  font-size: 22rpx;
+  margin-top: 12rpx;
+  text-align: center;
+}
