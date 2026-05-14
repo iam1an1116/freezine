@@ -18,8 +18,7 @@ function _headers(extra) {
 function _request(opts) {
   return new Promise((resolve, reject) => {
     wx.request({
-      timeout: 15000,
-      enableHttp2: true,
+      timeout: 30000,
       ...opts,
       header: opts.header || _headers(),
       success(r) {
