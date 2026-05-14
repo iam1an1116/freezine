@@ -225,9 +225,10 @@ Page({
     try {
       const res = await wx.chooseImage({ count: 1, sizeType: ['compressed'] });
       const path = res.tempFilePaths[0];
-      // 获取图片信息
       const info = await wx.getImageInfo({ src: path });
-      this.engine.addImage(path, info.width, info.height);
+      const obj = this.engine.addImage(path, info.width, info.height);
+      // 关键：把图片加载进 canvas 才能渲染
+      await this.engine.loadImageForObject(obj);
       this._saveCurrentPage();
       this._syncActive();
     } catch (e) {
