@@ -56,10 +56,11 @@ Page({
         };
       });
 
-      this.setData({ icons });
+      this.setData({ icons, status: `已加载 ${icons.length} 个图标` });
+      setTimeout(() => { if (this.data.status && this.data.status.startsWith('已加载')) this.setData({ status: '' }); }, 3000);
     } catch (e) {
       console.error('_loadIcons error', e);
-      this.setData({ status: '加载失败，下拉刷新重试' });
+      this.setData({ status: `加载失败: ${e.message || '未知错误'}，下拉刷新重试` });
     } finally {
       wx.hideNavigationBarLoading();
       this._loading = false;
