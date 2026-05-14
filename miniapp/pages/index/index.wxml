@@ -14,11 +14,15 @@
           style="width: {{item._bw}}px; height: {{item._bh}}px;"
         >
           <image
+            wx:if="{{item._imgSrc}}"
             class="zine-icon-img"
-            src="{{item.iconDataURL}}"
+            src="{{item._imgSrc}}"
             mode="aspectFill"
             style="width: {{item._bw}}px; height: {{item._bh}}px;"
           />
+          <view wx:else class="zine-placeholder" style="width: {{item._bw}}px; height: {{item._bh}}px;">
+            <text class="zine-placeholder-text">{{item.title || 'Z'}}</text>
+          </view>
         </view>
         <view class="zine-name">{{item.title || '未命名'}}</view>
       </view>

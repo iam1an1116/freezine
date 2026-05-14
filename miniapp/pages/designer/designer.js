@@ -335,8 +335,19 @@ Page({
     this.setData({ status: '正在生成图标…' });
 
     try {
-      // 生成图标
+      // 1. 生成图标 data URL
       const iconDataURL = await this._generateIcon();
+
+      // 2. 上传到 Supabase Storage 获取持久化 URL
+      let iconPublicUrl = iconDataURL;
+      if (iconDataURL && iconDataURL.startsWith('data:')) {
+        try {
+          const uploadRes = await api.uploadImage(iconDataURL, zid, 'icon.png');
+          iconPublicUrl = uploadRes.publicUrl || iconDataURL;
+        } catch (uploadErr) {
+          console.warn('图标上传失败，使用 data URL 回退', uploadErr);
+        }
+      }
 
       const payload = {
         id: zid,
@@ -344,7 +355,7 @@ Page({
         createdAt: Date.now(),
         pageCount: this.data.pageCount,
         aspect: ratio,
-        iconDataURL,
+        iconDataURL: iconPublicUrl,
         pageWidthPx: this.pageW,
         pageHeightPx: this.pageH,
         pageStates: this.pageStates,
@@ -357,9 +368,7 @@ Page({
 
       await api.saveZine(zid, payload);
       this.setData({ status: '保存成功！' });
-      setTimeout(() => {
-        wx.navigateBack();
-      }, 1000);
+      setTimeout(() => wx.navigateBack(), 1000);
     } catch (e) {
       console.error(e);
       this.setData({ status: '保存失败：' + (e.message || '网络错误') });

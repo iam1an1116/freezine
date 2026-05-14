@@ -36,16 +36,33 @@ Page({
       const items = res.items || [];
       this._placedRects = [];
 
-      const icons = items.slice(0, 60).map((z, i) => {
+      const icons = [];
+      for (let i = 0; i < Math.min(items.length, 40); i++) {
+        const z = items[i];
         const ar = z.aspect ? (z.aspect.w / Math.max(1, z.aspect.h)) : 1;
-        const maxSide = 112;
+        const maxSide = 96;
         let bw = maxSide, bh = maxSide;
-        if (ar >= 1) bh = Math.round(maxSide / ar);
-        else bw = Math.round(maxSide * ar);
+        if (ar >= 1) bh = Math.max(48, Math.round(maxSide / ar));
+        else bw = Math.max(48, Math.round(maxSide * ar));
 
-        const pos = this._findPos(bw + 20, bh + 40);
-        return { ...z, _bw: bw, _bh: bh, _left: pos.left, _top: pos.top };
-      });
+        const pos = this._findPos(bw + 16, bh + 32);
+
+        // 避免将巨大的 data URL 传入 setData（会导致渲染异常）
+        const imgSrc = z.iconDataURL || '';
+        const isHTTP = imgSrc.startsWith('http://') || imgSrc.startsWith('https://');
+
+        icons.push({
+          id: z.id,
+          title: z.title,
+          pageCount: z.pageCount,
+          _bw: bw,
+          _bh: bh,
+          _left: pos.left,
+          _top: pos.top,
+          _imgSrc: isHTTP ? imgSrc : '',
+          _noImage: !isHTTP
+        });
+      }
 
       this.setData({ icons });
     } catch (e) {
@@ -57,15 +74,19 @@ Page({
     }
   },
 
-  // Random placement — avoid home button (center) and login (bottom-left)
+  // Random placement — avoid home button (center), login (bottom-left), status bar
   _getObstacles() {
+    const sys = wx.getSystemInfoSync();
+    const vw = sys.windowWidth;
+    const vh = sys.windowHeight;
+    const topBarH = (sys.statusBarHeight || 20) + 44; // status bar + nav bar
     const rects = [];
-    const vw = wx.getSystemInfoSync().windowWidth;
-    const vh = wx.getSystemInfoSync().windowHeight;
-    // center button
-    rects.push({ left: vw / 2 - 120, top: vh / 2 - 40, right: vw / 2 + 120, bottom: vh / 2 + 40 });
-    // login dot
-    rects.push({ left: 0, top: vh - 80, right: 80, bottom: vh });
+    // top status/nav bar
+    rects.push({ left: 0, top: 0, right: vw, bottom: topBarH });
+    // center button — generous margin
+    rects.push({ left: vw / 2 - 140, top: vh / 2 - 60, right: vw / 2 + 140, bottom: vh / 2 + 60 });
+    // login dot bottom-left
+    rects.push({ left: 0, top: vh - 100, right: 80, bottom: vh });
     return rects;
   },
 
