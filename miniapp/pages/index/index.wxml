@@ -1,7 +1,7 @@
 <!-- 首页 -->
 <view class="home-view">
   <!-- 图标墙 -->
-  <view class="icons-wall" id="iconsWall">
+  <view class="icons-wall">
     <block wx:for="{{icons}}" wx:key="id">
       <view
         class="zine-item"
@@ -14,9 +14,9 @@
           style="width: {{item._bw}}px; height: {{item._bh}}px;"
         >
           <image
-            wx:if="{{item._imgSrc}}"
+            wx:if="{{item.iconDataURL}}"
             class="zine-icon-img"
-            src="{{item._imgSrc}}"
+            src="{{item.iconDataURL}}"
             mode="aspectFill"
             style="width: {{item._bw}}px; height: {{item._bh}}px;"
           />
@@ -32,7 +32,7 @@
   <!-- 中央按钮 -->
   <button class="circle-btn primary home-enter-btn" bindtap="onEnter">现在，设计你的ZINE</button>
 
-  <!-- 左下角管理员登录 -->
+  <!-- 左下角管理员 -->
   <view class="login-entry {{admin ? 'authed' : ''}}" bindtap="onLoginTap"></view>
 
   <!-- 登录弹窗 -->
@@ -54,6 +54,6 @@
     </view>
   </view>
 
-  <!-- 加载/状态 -->
+  <!-- 状态提示 -->
   <view class="status-bar" wx:if="{{status}}">{{status}}</view>
 </view>

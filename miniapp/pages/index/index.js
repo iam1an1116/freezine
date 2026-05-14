@@ -21,9 +21,6 @@ Page({
 
   onShow() {
     this.setData({ admin: auth.isAdmin() });
-    if (this.data.icons.length === 0 && !this._loading) {
-      this._loadIcons();
-    }
   },
 
   // ---------- 加载图标 ----------
@@ -33,12 +30,10 @@ Page({
     wx.showNavigationBarLoading();
     try {
       const res = await api.listZines();
-      const items = res.items || [];
+      const items = (res && res.items) || [];
       this._placedRects = [];
 
-      const icons = [];
-      for (let i = 0; i < Math.min(items.length, 40); i++) {
-        const z = items[i];
+      const icons = items.slice(0, 40).map(z => {
         const ar = z.aspect ? (z.aspect.w / Math.max(1, z.aspect.h)) : 1;
         const maxSide = 96;
         let bw = maxSide, bh = maxSide;
@@ -47,26 +42,28 @@ Page({
 
         const pos = this._findPos(bw + 16, bh + 32);
 
-        // 避免将巨大的 data URL 传入 setData（会导致渲染异常）
-        const imgSrc = z.iconDataURL || '';
-        const isHTTP = imgSrc.startsWith('http://') || imgSrc.startsWith('https://');
+        // 关键修复：data URL 可能 >200KB，传入 setData 会导致渲染崩溃
+        // 将 data: URL 替换为空字符串，http(s) URL 保留
+        const raw = z.iconDataURL || '';
+        const isHTTP = raw.startsWith('http://') || raw.startsWith('https://');
 
-        icons.push({
+        return {
           id: z.id,
           title: z.title,
+          createdAt: z.createdAt,
           pageCount: z.pageCount,
+          aspect: z.aspect,
+          iconDataURL: isHTTP ? raw : '',
           _bw: bw,
           _bh: bh,
           _left: pos.left,
-          _top: pos.top,
-          _imgSrc: isHTTP ? imgSrc : '',
-          _noImage: !isHTTP
-        });
-      }
+          _top: pos.top
+        };
+      });
 
       this.setData({ icons });
     } catch (e) {
-      console.error('加载失败', e);
+      console.error('_loadIcons error', e);
       this.setData({ status: '加载失败，下拉刷新重试' });
     } finally {
       wx.hideNavigationBarLoading();
@@ -74,20 +71,17 @@ Page({
     }
   },
 
-  // Random placement — avoid home button (center), login (bottom-left), status bar
+  // ---------- 随机放置 ----------
   _getObstacles() {
     const sys = wx.getSystemInfoSync();
     const vw = sys.windowWidth;
     const vh = sys.windowHeight;
-    const topBarH = (sys.statusBarHeight || 20) + 44; // status bar + nav bar
-    const rects = [];
-    // top status/nav bar
-    rects.push({ left: 0, top: 0, right: vw, bottom: topBarH });
-    // center button — generous margin
-    rects.push({ left: vw / 2 - 140, top: vh / 2 - 60, right: vw / 2 + 140, bottom: vh / 2 + 60 });
-    // login dot bottom-left
-    rects.push({ left: 0, top: vh - 100, right: 80, bottom: vh });
-    return rects;
+    return [
+      // 中央按钮区域
+      { left: vw / 2 - 130, top: vh / 2 - 56, right: vw / 2 + 130, bottom: vh / 2 + 56 },
+      // 左下角登录按钮
+      { left: 0, top: vh - 90, right: 76, bottom: vh }
+    ];
   },
 
   _overlap(a, b) {
@@ -98,17 +92,20 @@ Page({
     const vw = wx.getSystemInfoSync().windowWidth;
     const vh = wx.getSystemInfoSync().windowHeight;
     const obstacles = this._getObstacles();
-    const pad = 16;
+    const pad = 12;
 
-    // Clamp element size to fit viewport
     const maxW = Math.min(elW, vw - pad * 2);
     const maxH = Math.min(elH, vh - pad * 2);
+    const rangeW = Math.max(10, vw - maxW - pad * 2);
+    const rangeH = Math.max(10, vh - maxH - pad * 2);
 
-    for (let i = 0; i < 500; i++) {
-      const left = pad + Math.random() * Math.max(0, vw - maxW - pad * 2);
-      const top = pad + Math.random() * Math.max(0, vh - maxH - pad * 2);
-      if (isNaN(left) || isNaN(top)) continue;
-      const cand = { left: left - pad, top: top - pad, right: left + maxW + pad, bottom: top + maxH + pad };
+    for (let i = 0; i < 600; i++) {
+      const left = pad + Math.random() * rangeW;
+      const top = pad + Math.random() * rangeH;
+      const cand = {
+        left: left - pad, top: top - pad,
+        right: left + maxW + pad, bottom: top + maxH + pad
+      };
 
       let hit = false;
       for (const o of obstacles) { if (this._overlap(cand, o)) { hit = true; break; } }
@@ -119,10 +116,11 @@ Page({
       this._placedRects.push(cand);
       return { left: Math.round(left), top: Math.round(top) };
     }
-    // Fallback: place in a corner area with some randomness
-    const fl = pad + Math.random() * Math.max(0, vw - maxW - pad * 2);
-    const ft = pad + Math.random() * Math.max(0, vh - maxH - pad * 2);
-    return { left: Math.round(isNaN(fl) ? pad : fl), top: Math.round(isNaN(ft) ? pad : ft) };
+    // 最终回退：随机位置
+    return {
+      left: Math.round(pad + Math.random() * rangeW),
+      top: Math.round(pad + Math.random() * rangeH)
+    };
   },
 
   // ---------- 事件 ----------
@@ -138,11 +136,9 @@ Page({
   onLoginTap() {
     this.setData({ showLogin: true, loginUser: '', loginPass: '' });
   },
-
   onCancelLogin() {
     this.setData({ showLogin: false });
   },
-
   onUserInput(e) { this.setData({ loginUser: e.detail.value }); },
   onPassInput(e) { this.setData({ loginPass: e.detail.value }); },
 
@@ -158,7 +154,6 @@ Page({
 
   stopProp() {},
 
-  // 下拉刷新
   onPullDownRefresh() {
     this._loadIcons().then(() => wx.stopPullDownRefresh());
   }
