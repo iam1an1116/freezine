@@ -11,7 +11,6 @@ Page({
     status: ''
   },
 
-  _placedRects: [],
   _loading: false,
 
   onLoad() {
@@ -31,28 +30,24 @@ Page({
     try {
       const res = await api.listZines();
       const items = (res && res.items) || [];
-      this._placedRects = [];
 
-      const icons = items.slice(0, 40).map(z => {
+      const icons = items.slice(0, 40).map((z, i) => {
         const ar = z.aspect ? (z.aspect.w / Math.max(1, z.aspect.h)) : 1;
         const maxSide = 96;
         let bw = maxSide, bh = maxSide;
         if (ar >= 1) bh = Math.max(48, Math.round(maxSide / ar));
         else bw = Math.max(48, Math.round(maxSide * ar));
 
-        const pos = this._findPos(bw + 16, bh + 32);
+        // 使用网格法，保证不重叠
+        const pos = this._gridPos(i, bw + 14, bh + 34);
 
-        // 关键修复：data URL 可能 >200KB，传入 setData 会导致渲染崩溃
-        // 将 data: URL 替换为空字符串，http(s) URL 保留
         const raw = z.iconDataURL || '';
         const isHTTP = raw.startsWith('http://') || raw.startsWith('https://');
 
         return {
           id: z.id,
           title: z.title,
-          createdAt: z.createdAt,
           pageCount: z.pageCount,
-          aspect: z.aspect,
           iconDataURL: isHTTP ? raw : '',
           _bw: bw,
           _bh: bh,
@@ -71,55 +66,48 @@ Page({
     }
   },
 
-  // ---------- 随机放置 ----------
-  _getObstacles() {
+  // ---------- 网格定位（绝不出错）----------
+  _gridPos(index, elW, elH) {
     const sys = wx.getSystemInfoSync();
     const vw = sys.windowWidth;
     const vh = sys.windowHeight;
-    return [
-      // 中央按钮区域
-      { left: vw / 2 - 130, top: vh / 2 - 56, right: vw / 2 + 130, bottom: vh / 2 + 56 },
-      // 左下角登录按钮
-      { left: 0, top: vh - 90, right: 76, bottom: vh }
-    ];
-  },
+    const pad = 18;
 
-  _overlap(a, b) {
-    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
-  },
+    const cols = Math.max(1, Math.floor((vw - pad * 2) / (elW + pad)));
+    const rows = Math.max(1, Math.floor((vh - pad * 2) / (elH + pad)));
+    const centerCol = Math.floor(cols / 2);
+    const centerRow = Math.floor(rows / 2);
 
-  _findPos(elW, elH) {
-    const vw = wx.getSystemInfoSync().windowWidth;
-    const vh = wx.getSystemInfoSync().windowHeight;
-    const obstacles = this._getObstacles();
-    const pad = 12;
-
-    const maxW = Math.min(elW, vw - pad * 2);
-    const maxH = Math.min(elH, vh - pad * 2);
-    const rangeW = Math.max(10, vw - maxW - pad * 2);
-    const rangeH = Math.max(10, vh - maxH - pad * 2);
-
-    for (let i = 0; i < 600; i++) {
-      const left = pad + Math.random() * rangeW;
-      const top = pad + Math.random() * rangeH;
-      const cand = {
-        left: left - pad, top: top - pad,
-        right: left + maxW + pad, bottom: top + maxH + pad
-      };
-
-      let hit = false;
-      for (const o of obstacles) { if (this._overlap(cand, o)) { hit = true; break; } }
-      if (hit) continue;
-      for (const p of this._placedRects) { if (this._overlap(cand, p)) { hit = true; break; } }
-      if (hit) continue;
-
-      this._placedRects.push(cand);
-      return { left: Math.round(left), top: Math.round(top) };
+    // 收集所有可用网格格子（跳过中央按钮区和左下角）
+    const cells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        // 中央按钮区域 (3列 x 5行)
+        if (Math.abs(c - centerCol) <= 1 && Math.abs(r - centerRow) <= 2) continue;
+        // 左下角登录按钮区域
+        if (r >= rows - 2 && c <= 1) continue;
+        cells.push({ r, c });
+      }
     }
-    // 最终回退：随机位置
+
+    // 打乱格子顺序
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
+
+    // 如果格子不够，回退到全部可用格子
+    const cell = cells[index % Math.max(1, cells.length)];
+
+    // 在格子内加随机抖动，看起来自然
+    const cellW = (vw - pad * 2) / cols;
+    const cellH = (vh - pad * 2) / rows;
+    const jx = (Math.random() - 0.5) * Math.max(0, cellW - elW);
+    const jy = (Math.random() - 0.5) * Math.max(0, cellH - elH);
+
     return {
-      left: Math.round(pad + Math.random() * rangeW),
-      top: Math.round(pad + Math.random() * rangeH)
+      left: Math.round(pad + cell.c * cellW + jx),
+      top: Math.round(pad + cell.r * cellH + jy)
     };
   },
 
