@@ -66,44 +66,52 @@ Page({
     }
   },
 
-  // ---------- 网格定位（绝不出错）----------
+  // ---------- 网格定位 ----------
   _gridPos(index, elW, elH) {
     const sys = wx.getSystemInfoSync();
     const vw = sys.windowWidth;
     const vh = sys.windowHeight;
     const pad = 18;
 
-    const cols = Math.max(1, Math.floor((vw - pad * 2) / (elW + pad)));
-    const rows = Math.max(1, Math.floor((vh - pad * 2) / (elH + pad)));
+    const cols = Math.max(2, Math.floor((vw - pad * 2) / (elW + pad)));
+    const rows = Math.max(3, Math.floor((vh - pad * 2) / (elH + pad)));
     const centerCol = Math.floor(cols / 2);
     const centerRow = Math.floor(rows / 2);
 
-    // 收集所有可用网格格子（跳过中央按钮区和左下角）
+    // 收集可用格子，仅跳过中央按钮本身（1格）
     const cells = [];
+    const skipR = centerRow;
+    const skipC = centerCol;
+    const skipR2 = rows - 1; // 底部留一行给登录按钮
+
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        // 中央按钮区域 (3列 x 5行)
-        if (Math.abs(c - centerCol) <= 1 && Math.abs(r - centerRow) <= 2) continue;
-        // 左下角登录按钮区域
-        if (r >= rows - 2 && c <= 1) continue;
+        if (r === skipR && c === skipC) continue;   // 中央按钮
+        if (r === skipR2 && c === 0) continue;      // 左下登录
         cells.push({ r, c });
       }
     }
 
-    // 打乱格子顺序
+    // 如果有效格子不够，把所有格子都用上
+    if (cells.length === 0) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          cells.push({ r, c });
+        }
+      }
+    }
+
+    // 打乱
     for (let i = cells.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cells[i], cells[j]] = [cells[j], cells[i]];
     }
 
-    // 如果格子不够，回退到全部可用格子
-    const cell = cells[index % Math.max(1, cells.length)];
-
-    // 在格子内加随机抖动，看起来自然
+    const cell = cells[index % cells.length];
     const cellW = (vw - pad * 2) / cols;
     const cellH = (vh - pad * 2) / rows;
-    const jx = (Math.random() - 0.5) * Math.max(0, cellW - elW);
-    const jy = (Math.random() - 0.5) * Math.max(0, cellH - elH);
+    const jx = (Math.random() - 0.5) * Math.max(0, cellW - elW - 4);
+    const jy = (Math.random() - 0.5) * Math.max(0, cellH - elH - 4);
 
     return {
       left: Math.round(pad + cell.c * cellW + jx),
