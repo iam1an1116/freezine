@@ -154,8 +154,8 @@
 
 
   // Admin (client-side only; not secure)
-  const ADMIN_USER = "1an";
-  const ADMIN_PASS = "Freezine2006";
+  const ADMIN_USER = "Admin1an";
+  const ADMIN_PASS = "frezINE1an--2157";
   const ADMIN_FLAG_KEY = "free-zine:adminAuthed";
   function isAdminAuthed() {
     return localStorage.getItem(ADMIN_FLAG_KEY) === "1";
@@ -985,8 +985,67 @@
     }
   }
 
+  // Random placement state
+  let placedIconRects = [];
+
+  function _getObstacleRects() {
+    const rects = [];
+    const enterBtn = document.getElementById("homeEnterBtn");
+    if (enterBtn) {
+      const r = enterBtn.getBoundingClientRect();
+      rects.push({ left: r.left - 24, top: r.top - 24, right: r.right + 24, bottom: r.bottom + 24 });
+    }
+    const loginBtn = document.getElementById("loginEntryBtn");
+    if (loginBtn) {
+      const r = loginBtn.getBoundingClientRect();
+      rects.push({ left: r.left - 12, top: r.top - 12, right: r.right + 12, bottom: r.bottom + 12 });
+    }
+    return rects;
+  }
+
+  function _rectsOverlap(a, b) {
+    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  }
+
+  function _findRandomPlacement(elW, elH) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const obstacles = _getObstacleRects();
+    const pad = 16;
+
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const left = pad + Math.random() * Math.max(0, vw - elW - pad * 2);
+      const top = pad + Math.random() * Math.max(0, vh - elH - pad * 2);
+
+      const candidate = {
+        left: left - pad,
+        top: top - pad,
+        right: left + elW + pad,
+        bottom: top + elH + pad,
+      };
+
+      let overlaps = false;
+      for (const obs of obstacles) {
+        if (_rectsOverlap(candidate, obs)) { overlaps = true; break; }
+      }
+      if (overlaps) continue;
+
+      for (const placed of placedIconRects) {
+        if (_rectsOverlap(candidate, placed)) { overlaps = true; break; }
+      }
+      if (overlaps) continue;
+
+      placedIconRects.push(candidate);
+      return { left, top };
+    }
+
+    // Fallback: place at a random position anyway
+    const left = pad + Math.random() * Math.max(0, vw - elW - pad * 2);
+    const top = pad + Math.random() * Math.max(0, vh - elH - pad * 2);
+    return { left, top };
+  }
+
   function addIconToHome(zine) {
-    // Use wrapper + icon + label.
     const item = document.createElement("div");
     item.className = "zine-item";
     item.dataset.zineId = zine.id;
@@ -1024,7 +1083,6 @@
     item.appendChild(name);
 
     btn.addEventListener("click", () => {
-      // Open a landing page in a new window (cover + "阅览" button).
       window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
     });
     btn.addEventListener("keydown", (e) => {
@@ -1032,11 +1090,25 @@
         window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
       }
     });
+
+    // Append hidden first to measure
+    item.style.visibility = "hidden";
+    item.style.left = "0px";
+    item.style.top = "0px";
     iconsWall.appendChild(item);
+
+    // Measure and place
+    const elW = item.offsetWidth || bw + 20;
+    const elH = item.offsetHeight || bh + 40;
+    const pos = _findRandomPlacement(elW, elH);
+    item.style.left = `${pos.left}px`;
+    item.style.top = `${pos.top}px`;
+    item.style.visibility = "";
   }
 
   function clearHomeIcons() {
     iconsWall.innerHTML = "";
+    placedIconRects = [];
   }
 
   async function restoreHomeIconsFromStorage() {
@@ -1259,6 +1331,9 @@
     // Return to home
     homeView.classList.remove("hidden");
     currentViewingZineId = null;
+    if (iconsWall && iconsWall.childElementCount === 0) {
+      restoreHomeIconsFromStorage().catch(() => {});
+    }
   }
 
   // ---------- Icon Generation ----------

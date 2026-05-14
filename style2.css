@@ -80,38 +80,19 @@ body{
 .icons-wall{
   position: absolute;
   inset: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  /* 中央留给「制作」按钮：整体内容从按钮下方开始；中间一列不放图标 */
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(112px, min(300px, 40vw)) minmax(0, 1fr);
-  grid-auto-rows: min-content;
-  column-gap: 14px;
-  row-gap: 22px;
-  align-content: start;
-  justify-items: center;
-  padding: calc(50vh + 56px) 10px 52px 52px;
+  overflow: hidden;
   z-index: 1;
+  pointer-events: none;
 }
-/* 奇数在左栏、偶数在右栏，中间栏恒空，避免与正中按钮视觉重叠 */
-.icons-wall .zine-item:nth-child(odd){
-  grid-column: 1;
-  justify-self: end;
-  margin-right: 4px;
-}
-.icons-wall .zine-item:nth-child(even){
-  grid-column: 3;
-  justify-self: start;
-  margin-left: 4px;
-}
-
-@media (max-width: 520px){
-  .icons-wall{
-    grid-template-columns: minmax(0, 1fr) minmax(92px, 36vw) minmax(0, 1fr);
-    padding: calc(50vh + 48px) 8px 44px 46px;
-    column-gap: 8px;
-  }
+.zine-item{
+  position: absolute;
+  display:flex;
+  flex-direction: column;
+  align-items:center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+  max-width: 132px;
+  pointer-events: auto;
 }
 
 #homeEnterBtn{
@@ -121,16 +102,6 @@ body{
   transform: translate(-50%, -50%);
   z-index: 5;
   pointer-events: auto;
-}
-
-.zine-item{
-  position: relative;
-  display:flex;
-  flex-direction: column;
-  align-items:center;
-  justify-content: flex-start;
-  flex: 0 0 auto;
-  max-width: 132px;
 }
 
 .zine-icon-btn{
@@ -572,7 +543,7 @@ input[type="text"]{
 /* Admin login */
 .login-entry{
   position: fixed;
-  top: 14px;
+  bottom: 14px;
   left: 14px;
   z-index: 60;
   border: none;
