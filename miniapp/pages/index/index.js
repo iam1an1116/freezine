@@ -107,19 +107,17 @@ Page({
       this._bodies.push(body);
 
       if (isHTTP) {
-        // canvas.createImage 不能直接加载外部 URL，先下载到本地
-        wx.downloadFile({
-          url: z.iconDataURL,
+        // wx.getImageInfo 下载图片到本地，返回 path 可直接用于 canvas
+        wx.getImageInfo({
+          src: z.iconDataURL,
           success: res => {
-            if (res.statusCode === 200 && res.tempFilePath) {
-              if (!this._canvas) { body.imgLoaded = false; return; }
-              const img = this._canvas.createImage();
-              img.onload = () => { body.imgLoaded = true; body.img = img; };
-              img.onerror = () => { body.imgLoaded = false; };
-              img.src = res.tempFilePath;
-            }
+            if (!this._canvas) return;
+            const img = this._canvas.createImage();
+            img.onload = () => { body.imgLoaded = true; body.img = img; };
+            img.onerror = () => { console.warn('canvas img load fail', z.title); };
+            img.src = res.path;
           },
-          fail: () => { body.imgLoaded = false; }
+          fail: err => { console.warn('getImageInfo fail', z.title, err.errMsg); }
         });
       }
     }

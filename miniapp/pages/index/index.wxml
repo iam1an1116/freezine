@@ -18,6 +18,8 @@
           bindinput="onSearchInput"
           bindconfirm="onSearch"
           placeholder="搜索 ZINE 名称…"
+          focus="{{showSearch}}"
+          confirm-type="search"
         />
         <button class="circle-btn primary small" bindtap="onSearch">搜索</button>
         <button class="circle-btn small" bindtap="onSearchCancel">取消</button>
