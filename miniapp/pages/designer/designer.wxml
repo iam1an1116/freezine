@@ -60,23 +60,24 @@
       <button class="circle-btn small danger" bindtap="onClearPage">清空本页</button>
     </view>
 
-    <!-- Canvas 区域：用 cover-view 覆盖原生 canvas 接事件 -->
-    <view class="canvas-wrap" id="canvasWrap">
+    <!-- Canvas 区域：cover-view 必须放在 canvas 标签内部 -->
+    <view class="canvas-wrap">
       <canvas
         type="2d"
         id="zineCanvas"
         class="zine-canvas"
         style="width: {{canvasStyleW}}px; height: {{canvasStyleH}}px;"
         disable-scroll="true"
-      ></canvas>
-      <cover-view
-        class="canvas-overlay"
-        style="width: {{canvasStyleW}}px; height: {{canvasStyleH}}px;"
-        catchtap="onCanvasTap"
-        catchtouchstart="onTouchStart"
-        catchtouchmove="onTouchMove"
-        catchtouchend="onTouchEnd"
-      ></cover-view>
+      >
+        <cover-view
+          class="canvas-overlay"
+          style="width: 100%; height: 100%;"
+          catchtap="onCanvasTap"
+          catchtouchstart="onTouchStart"
+          catchtouchmove="onTouchMove"
+          catchtouchend="onTouchEnd"
+        ></cover-view>
+      </canvas>
     </view>
 
     <!-- 样式控制 -->

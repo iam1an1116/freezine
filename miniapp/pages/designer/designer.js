@@ -105,54 +105,37 @@ Page({
     });
   },
 
-  // ---------- Touch (overlay view - 和 canvas 同尺寸同位置) ----------
-  _toCanvasX(tx) { return tx * (this.pageW / Math.max(1, this.data.canvasStyleW || 300)); },
-  _toCanvasY(ty) { return ty * (this.pageH / Math.max(1, this.data.canvasStyleH || 300)); },
-
+  // ---------- Touch (cover-view 在 canvas 内部) ----------
   onCanvasTap(e) {
     wx.showToast({ title: 'tap!', icon: 'none', duration: 300 });
     if (!this.engine) return;
-
-    // cover-view fill 了整个 canvas-wrap，需要减掉 canvas 在 wrap 内的偏移
-    const cw = this.data.canvasStyleW || 300;
-    const ch = this.data.canvasStyleH || 300;
-    const dx = e.detail.x || 0;
-    const dy = e.detail.y || 0;
-
-    // canvas 在 canvas-wrap 中居中，偏移需要从 overlay rect 和 canvas rect 算
-    let cx, cy;
-    if (this._overlayRect && this._overlayRect.width > 0) {
-      // canvas CSS 尺寸 vs overlay CSS 尺寸
-      const offsetX = (this._overlayRect.width - cw) / 2;
-      const offsetY = (this._overlayRect.height - ch) / 2;
-      cx = Math.max(0, dx - offsetX) * (this.pageW / cw);
-      cy = Math.max(0, dy - offsetY) * (this.pageH / ch);
-    } else {
-      cx = dx * (this.pageW / cw);
-      cy = dy * (this.pageH / ch);
-    }
-
+    const cw = Math.max(1, this.data.canvasStyleW || 300);
+    const ch = Math.max(1, this.data.canvasStyleH || 300);
+    const cx = (e.detail.x || 0) * (this.pageW / cw);
+    const cy = (e.detail.y || 0) * (this.pageH / ch);
     const hitId = this.engine.hitTest(cx, cy);
     this.engine.setActive(hitId || null);
     this._syncActive();
   },
 
   onTouchStart(e) {
-    if (!this.engine || !this._overlayRect) return;
+    if (!this.engine) return;
     const t = e.touches[0];
     this._touchData = { lx: t.x, ly: t.y, dragging: false };
-
-    const sx = this.pageW / this._overlayRect.width;
-    const sy = this.pageH / this._overlayRect.height;
-    const cx = (t.x - this._overlayRect.left) * sx;
-    const cy = (t.y - this._overlayRect.top) * sy;
-    const hitId = this.engine.hitTest(cx, cy);
-    if (hitId) this.engine.setActive(hitId);
-    this._syncActive();
+    // cover-view 在 canvas 内部，touch 坐标需减去 canvas viewport 位置
+    if (this._overlayRect) {
+      const sx = this.pageW / this._overlayRect.width;
+      const sy = this.pageH / this._overlayRect.height;
+      const cx = (t.x - this._overlayRect.left) * sx;
+      const cy = (t.y - this._overlayRect.top) * sy;
+      const hitId = this.engine.hitTest(cx, cy);
+      if (hitId) this.engine.setActive(hitId);
+      this._syncActive();
+    }
   },
 
   onTouchMove(e) {
-    if (!this._touchData || !this.engine || !this._overlayRect) return;
+    if (!this._touchData || !this.engine) return;
     const t = e.touches[0];
     const dx = t.x - this._touchData.lx;
     const dy = t.y - this._touchData.ly;
@@ -160,9 +143,8 @@ Page({
       this._touchData.dragging = true;
     }
     if (!this._touchData.dragging) return;
-    const sx = this.pageW / this._overlayRect.width;
-    const sy = this.pageH / this._overlayRect.height;
-    this.engine.moveActive(dx * sx, dy * sy);
+    const s = (this.pageW / Math.max(1, this.data.canvasStyleW || 300));
+    this.engine.moveActive(dx * s, dy * s);
     this._touchData.lx = t.x; this._touchData.ly = t.y;
     this._saveCurrentPage();
   },
