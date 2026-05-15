@@ -258,8 +258,8 @@ Page({
   // ====== 样式 ======
   onFontScale(e) { const v=e.detail.value; this.setData({fontScale:v,fontScaleText:v.toFixed(2)+'x'}); const o=this.engine?.getActive(); if(o&&(o.type==='textbox'||o.type==='text')){this.engine.updateActive({fontSize:Math.round(28*v)});this._saveCurrentPage();} },
   onFontPick(e) { const i=Number(e.detail.value); this.setData({fontFamilyIdx:i}); const o=this.engine?.getActive(); if(o&&(o.type==='textbox'||o.type==='text')){this.engine.updateActive({fontFamily:this.data.fontFamilyValues[i]});this._saveCurrentPage();} },
-  onFontColorTap() { this.setData({showColor:true, colorTarget:'font'}); },
-  onBgColorTap() { this.setData({showColor:true, colorTarget:'bg'}); },
+  onFontColorTap() { wx.showToast({title:'color',icon:'none',duration:300}); this.setData({showColor:true, colorTarget:'font'}); },
+  onBgColorTap() { wx.showToast({title:'color',icon:'none',duration:300}); this.setData({showColor:true, colorTarget:'bg'}); },
   onPickColor(e) {
     const c = e.currentTarget.dataset.color;
     if (this.data.colorTarget === 'font') {

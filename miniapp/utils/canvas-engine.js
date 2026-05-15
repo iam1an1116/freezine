@@ -129,7 +129,7 @@ class CanvasEngine {
   addText(text, opts = {}) {
     const fs = opts.fontSize || 28;
     const w = opts.width || Math.min(360, Math.max(80, (text||'').length * fs * 1.2 + 20));
-    const h = fs * 1.6 + 16;
+    const h = opts.height || (fs * 1.6 + 16);
     const o = {
       id: `text-${Date.now()}`,
       type: 'textbox',
