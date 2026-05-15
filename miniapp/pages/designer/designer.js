@@ -149,18 +149,46 @@ Page({
     if (this._touchData) this._touchData.dragging = false;
   },
 
-  // tap 回退：如果 touchstart 没拿到 rect，用 tap 的 element-relative 坐标
+  // tap：优先用 detail.x/y (相对元素), 加调试红点
   onCanvasTap(e) {
     if (!this.engine) return;
-    // touchstart 已经处理过了，这里只做回退
-    if (this._touchData && this._touchData.hitOnStart !== undefined) return;
-    // 回退：用 detail.x/y
-    const sx = this.pageW / Math.max(1, this.data.canvasStyleW || 300);
-    const sy = this.pageH / Math.max(1, this.data.canvasStyleH || 300);
-    const x = (e.detail.x || 0) * sx;
-    const y = (e.detail.y || 0) * sy;
+    const cw = Math.max(1, this.data.canvasStyleW || 300);
+    const ch = Math.max(1, this.data.canvasStyleH || 300);
+    const sx = this.pageW / cw;
+    const sy = this.pageH / ch;
+
+    // 优先 detail.x/y，没有则用 touch
+    let ex = e.detail.x, ey = e.detail.y;
+    if (ex == null && e.changedTouches && e.changedTouches[0]) {
+      ex = e.changedTouches[0].x; ey = e.changedTouches[0].y;
+      // 屏幕坐标需要减 canvas 位置
+      if (this._canvasRect) { ex -= this._canvasRect.left; ey -= this._canvasRect.top; }
+    }
+    if (ex == null) ex = 0;
+    if (ey == null) ey = 0;
+
+    const x = ex * sx, y = ey * sy;
+    console.log('tap', { ex, ey, x, y, sx, sy, cw, ch, pw: this.pageW, ph: this.pageH });
+
+    // 画个红点确认位置
+    const ctx = this.engine.ctx;
+    ctx.save();
+    const dpr = this.engine.dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = 'red';
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // 1秒后清除
+    setTimeout(() => this.engine && this.engine.render(), 1000);
+
     const hitId = this.engine.hitTest(x, y);
-    this.engine.setActive(hitId || null);
+    if (hitId) {
+      this.engine.setActive(hitId);
+    } else {
+      this.engine.setActive(null);
+    }
     this._syncActive();
   },
 

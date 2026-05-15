@@ -67,10 +67,10 @@
         id="zineCanvas"
         class="zine-canvas"
         style="width: {{canvasStyleW}}px; height: {{canvasStyleH}}px;"
-        bindtap="onCanvasTap"
-        bindtouchstart="onTouchStart"
-        bindtouchmove="onTouchMove"
-        bindtouchend="onTouchEnd"
+        catchtap="onCanvasTap"
+        catchtouchstart="onTouchStart"
+        catchtouchmove="onTouchMove"
+        catchtouchend="onTouchEnd"
       ></canvas>
     </view>
 
