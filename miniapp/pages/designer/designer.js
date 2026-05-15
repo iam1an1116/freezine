@@ -111,16 +111,35 @@ Page({
   },
 
   _onTS(e) {
-    wx.showToast({ title: 'TOUCH!', icon: 'none', duration: 500 });
     if (!this.engine) return;
     const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : null);
     if (!t) return;
     this._getRect(rect => {
-      const sx = this.pageW / rect.width;
-      const sy = this.pageH / rect.height;
-      const cx = (t.x - rect.left) * sx;
-      const cy = (t.y - rect.top) * sy;
-      const hitId = this.engine.hitTest(cx, cy);
+      // 尝试两种坐标转换，看哪个能命中
+      const sx = this.pageW / Math.max(1, rect.width);
+      const sy = this.pageH / Math.max(1, rect.height);
+
+      // 方式1：touch coords - rect offset（viewport 相对坐标）
+      const cx1 = (t.x - (rect.left || 0)) * sx;
+      const cy1 = (t.y - (rect.top || 0)) * sy;
+      // 方式2：touch coords 直接缩放（canvas 相对坐标）
+      const cx2 = t.x * sx;
+      const cy2 = t.y * sy;
+
+      let hitId = this.engine.hitTest(cx1, cy1);
+      if (!hitId) hitId = this.engine.hitTest(cx2, cy2);
+
+      // 日志
+      const objs = this.engine.objects;
+      let info = `touch:(${t.x},${t.y}) rect:(${rect.left},${rect.top},${rect.width},${rect.height})`;
+      info += ` => (${cx1.toFixed(0)},${cy1.toFixed(0)}) or (${cx2.toFixed(0)},${cy2.toFixed(0)})`;
+      if (objs.length) {
+        const o = objs[0];
+        info += ` | obj:(${o.left},${o.top},${o.width*o.scaleX},${o.height*o.scaleY})`;
+      }
+      console.log(info);
+      wx.showToast({ title: hitId ? 'HIT!' : `(${cx2.toFixed(0)},${cy2.toFixed(0)})`, icon: 'none', duration: 800 });
+
       if (hitId) {
         this.engine.setActive(hitId);
         this._dragData = { lx: t.x, ly: t.y, active: hitId };
