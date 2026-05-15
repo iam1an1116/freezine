@@ -116,6 +116,11 @@ Page({
 
   _onTE() { this._dragData = null; },
 
+  // WXML catch 事件入口
+  onTS(e) { wx.showToast({title:'T',icon:'none',duration:300}); this._onTS(e); },
+  onTM(e) { this._onTM(e); },
+  onTE(e) { this._onTE(e); },
+
   _syncActive() {
     const obj = this.engine ? this.engine.getActive() : null;
     if (obj) {
