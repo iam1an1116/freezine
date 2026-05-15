@@ -1,41 +1,18 @@
-<!-- 首页 -->
+<!-- Canvas 物理引擎首页 -->
 <view class="home-view">
-  <!-- 图标墙 -->
-  <view class="icons-wall">
-    <block wx:for="{{icons}}" wx:key="id">
-      <view
-        class="zine-item"
-        data-id="{{item.id}}"
-        style="left: {{item._left}}px; top: {{item._top}}px;"
-        bindtap="onIconTap"
-      >
-        <view
-          class="zine-icon-btn"
-          style="width: {{item._bw}}px; height: {{item._bh}}px;"
-        >
-          <image
-            wx:if="{{item.iconDataURL}}"
-            class="zine-icon-img"
-            src="{{item.iconDataURL}}"
-            mode="aspectFill"
-            style="width: {{item._bw}}px; height: {{item._bh}}px;"
-          />
-          <view wx:else class="zine-placeholder" style="width: {{item._bw}}px; height: {{item._bh}}px;">
-            <text class="zine-placeholder-text">{{item.title || 'Z'}}</text>
-          </view>
-        </view>
-        <view class="zine-name">{{item.title || '未命名'}}</view>
-      </view>
-    </block>
-  </view>
+  <canvas
+    type="2d"
+    id="physicsCanvas"
+    class="physics-canvas"
+    bindtap="onCanvasTap"
+  ></canvas>
 
-  <!-- 中央按钮 -->
-  <button class="circle-btn primary home-enter-btn" bindtap="onEnter">现在，设计你的ZINE</button>
+  <button class="circle-btn primary home-enter-btn" bindtap="onEnter">
+    现在，设计你的ZINE
+  </button>
 
-  <!-- 左下角管理员 -->
   <view class="login-entry {{admin ? 'authed' : ''}}" bindtap="onLoginTap"></view>
 
-  <!-- 登录弹窗 -->
   <view class="login-modal {{showLogin ? '' : 'hidden'}}" catchtap="onCancelLogin">
     <view class="login-card" catchtap="stopProp">
       <view class="login-title">管理员登录</view>
@@ -54,6 +31,5 @@
     </view>
   </view>
 
-  <!-- 状态提示 -->
   <view class="status-bar" wx:if="{{status}}">{{status}}</view>
 </view>

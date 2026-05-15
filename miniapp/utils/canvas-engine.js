@@ -19,26 +19,38 @@ function normalizeFabricJSON(json) {
   const raw = json.objects || [];
   return {
     background: bg,
-    objects: raw.map(obj => ({
-      id: obj.id || `obj-${Date.now()}-${Math.random()}`,
-      type: obj.type || 'textbox',
-      left: obj.left || 0,
-      top: obj.top || 0,
-      width: obj.width || 200,
-      height: obj.height || 40,
-      scaleX: obj.scaleX || 1,
-      scaleY: obj.scaleY || 1,
-      angle: obj.angle || 0,
-      fill: obj.fill || '#0f172a',
-      fontSize: obj.fontSize || 28,
-      fontFamily: obj.fontFamily || 'sans-serif',
-      text: obj.text || '',
-      textAlign: obj.textAlign || 'left',
-      src: obj.src || '',
-      // originX/originY: fabric uses 'center'|'left' etc.
-      originX: obj.originX || 'left',
-      originY: obj.originY || 'top'
-    }))
+    objects: raw.map(obj => {
+      const type = obj.type || 'textbox';
+      const width = obj.width || (type === 'image' ? 100 : 360);
+      const height = obj.height || (type === 'image' ? 100 : 80);
+      const scaleX = obj.scaleX || 1;
+      const scaleY = obj.scaleY || 1;
+      const originX = obj.originX || 'left';
+      const originY = obj.originY || 'top';
+
+      // Fabric 的 left/top 是 origin 的坐标，转为左上角坐标
+      const w = width * scaleX;
+      const h = height * scaleY;
+      const left = originX === 'center' ? (obj.left || 0) - w / 2 :
+                   originX === 'right'  ? (obj.left || 0) - w :
+                   (obj.left || 0);
+      const top  = originY === 'center' ? (obj.top || 0) - h / 2 :
+                   originY === 'bottom' ? (obj.top || 0) - h :
+                   (obj.top || 0);
+
+      return {
+        id: obj.id || `obj-${Date.now()}-${Math.random()}`,
+        type,
+        left, top, width, height, scaleX, scaleY,
+        angle: obj.angle || 0,
+        fill: obj.fill || '#0f172a',
+        fontSize: obj.fontSize || 28,
+        fontFamily: obj.fontFamily || 'sans-serif',
+        text: obj.text || '',
+        textAlign: obj.textAlign || 'left',
+        src: obj.src || ''
+      };
+    })
   };
 }
 
@@ -89,12 +101,11 @@ class CanvasEngine {
         left: o.left, top: o.top,
         width: o.width, height: o.height,
         scaleX: o.scaleX, scaleY: o.scaleY,
-        angle: o.angle,
+        angle: o.angle || 0,
         fill: o.fill, fontSize: o.fontSize,
         fontFamily: o.fontFamily, text: o.text,
         textAlign: o.textAlign,
-        src: o.src,
-        originX: o.originX, originY: o.originY
+        src: o.src
       }))
     };
   }
@@ -116,22 +127,23 @@ class CanvasEngine {
 
   // ----- 增删 -----
   addText(text, opts = {}) {
+    const fs = opts.fontSize || 28;
+    const w = opts.width || Math.max(200, text.length * fs * 0.8);
+    const h = 80;
     const o = {
       id: `text-${Date.now()}`,
       type: 'textbox',
-      left: opts.left != null ? opts.left : this.w / 2 - 100,
-      top: opts.top != null ? opts.top : this.h / 2 - 20,
-      width: 360,
-      height: 80,
+      left: opts.left != null ? opts.left : (this.w - w) / 2,
+      top: opts.top != null ? opts.top : (this.h - h) / 2,
+      width: w,
+      height: h,
       scaleX: 1, scaleY: 1,
       angle: 0,
       fill: opts.fill || '#0f172a',
-      fontSize: opts.fontSize || 28,
+      fontSize: fs,
       fontFamily: opts.fontFamily || 'sans-serif',
       text: text || '',
-      textAlign: 'left',
-      originX: 'left',
-      originY: 'top'
+      textAlign: 'left'
     };
     this.objects.push(o);
     this.activeId = o.id;
@@ -143,22 +155,20 @@ class CanvasEngine {
   addImage(src, naturalW, naturalH) {
     const maxW = this.w * 0.72;
     const maxH = this.h * 0.72;
-    let bw = naturalW;
-    let bh = naturalH;
-    const scale = Math.min(maxW / bw, maxH / bh);
+    const scale = Math.min(maxW / naturalW, maxH / naturalH);
+    const sw = naturalW * scale;
+    const sh = naturalH * scale;
     const o = {
       id: `img-${Date.now()}`,
       type: 'image',
-      left: (this.w - bw * scale) / 2,
-      top: (this.h - bh * scale) / 2,
-      width: bw,
-      height: bh,
+      left: (this.w - sw) / 2,
+      top: (this.h - sh) / 2,
+      width: naturalW,
+      height: naturalH,
       scaleX: scale,
       scaleY: scale,
       angle: 0,
-      src: src,
-      originX: 'left',
-      originY: 'top'
+      src: src
     };
     this.objects.push(o);
     this.activeId = o.id;
