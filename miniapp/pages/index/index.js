@@ -202,27 +202,36 @@ Page({
     const dpr = this._dpr;
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, this._w, this._h);
+
+    // 淡灰背景
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(0, 0, this._w, this._h);
 
     for (const b of this._bodies) {
       const bx = b.x, by = b.y;
       const bw = b.w, imgH = b.h - 20;
-      const r = 12;
+      const r = 10;
 
-      // 卡片背景
+      // 阴影
+      ctx.shadowColor = 'rgba(0,0,0,.12)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 2;
+
+      // 白色卡片
       ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(15,23,42,.08)';
-      ctx.shadowBlur = 12;
-      ctx.shadowOffsetY = 3;
       this._roundR(ctx, bx, by, bw, imgH, r);
       ctx.fill();
+
+      // 重置阴影
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
 
-      // 边框
-      ctx.strokeStyle = 'rgba(15,23,42,.06)';
-      ctx.lineWidth = 1;
+      // 可见边框
+      ctx.strokeStyle = 'rgba(0,0,0,.12)';
+      ctx.lineWidth = 0.5;
       this._roundR(ctx, bx, by, bw, imgH, r);
       ctx.stroke();
 

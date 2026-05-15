@@ -38,12 +38,8 @@
 
   <!-- 右上角工具栏 -->
   <view class="top-tools {{showSearch ? 'hidden' : ''}}">
-    <button class="circle-btn small tool-btn" bindtap="onRefresh">
-      <text class="tool-icon">↻</text>
-    </button>
-    <button class="circle-btn small tool-btn" bindtap="onSearchTap">
-      <text class="tool-icon"> search</text>
-    </button>
+    <button class="circle-btn small" bindtap="onRefresh">↻ 刷新</button>
+    <button class="circle-btn small" bindtap="onSearchTap">🔍 搜索</button>
   </view>
 
   <!-- 左下角管理员 -->
