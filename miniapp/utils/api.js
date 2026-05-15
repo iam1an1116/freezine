@@ -80,6 +80,22 @@ async function listZines() {
   return { items, storage: 'supabase' };
 }
 
+async function searchZines(query) {
+  const r = await _request({
+    url: `${SUPABASE_URL}/rest/v1/${TABLE}?select=id,created_at,page_count,aspect,icon_data_url,title&title=ilike.*${encodeURIComponent(query)}*&order=created_at.desc&limit=40`,
+    method: 'GET'
+  });
+  const items = (r.data || []).map(row => ({
+    id: row.id,
+    createdAt: row.created_at,
+    pageCount: row.page_count,
+    aspect: _normalizeAspect(row.aspect),
+    iconDataURL: _safeStr(row.icon_data_url),
+    title: row.title
+  }));
+  return { items, storage: 'supabase' };
+}
+
 async function getZine(zid) {
   const r = await _request({
     url: `${SUPABASE_URL}/rest/v1/${TABLE}?select=*&id=eq.${encodeURIComponent(zid)}&limit=1`,
@@ -179,4 +195,4 @@ async function uploadImage(dataUrl, zineId, fileName) {
   return { ok: true, publicUrl, path: key };
 }
 
-module.exports = { listZines, getZine, saveZine, deleteZine, uploadImage };
+module.exports = { listZines, searchZines, getZine, saveZine, deleteZine, uploadImage };

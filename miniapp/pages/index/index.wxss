@@ -1,4 +1,3 @@
-/* Canvas 物理引擎首页 */
 .home-view {
   position: relative;
   width: 100vw;
@@ -9,42 +8,89 @@
 
 .physics-canvas {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   z-index: 1;
 }
 
-.home-enter-btn {
+/* 搜索栏 */
+.search-bar {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
-  pointer-events: auto;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  background: rgba(255,255,255,.95);
+  padding: 20rpx 24rpx;
+  padding-top: calc(20rpx + env(safe-area-inset-top));
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.search-input {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 16rpx 28rpx;
+  font-size: 28rpx;
+  background: #f8fafc;
 }
 
+/* 制作按钮 */
+.home-enter-btn {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+.home-back-btn {
+  position: absolute;
+  left: 50%; top: 60%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+
+/* 右上角工具 */
+.top-tools {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  z-index: 10;
+  display: flex;
+  gap: 16rpx;
+}
+.tool-btn {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 2px 12px rgba(15,23,42,.08);
+}
+.tool-icon {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+/* 管理员入口 */
 .login-entry {
   position: fixed;
-  bottom: 28rpx;
-  left: 28rpx;
+  bottom: 28rpx; left: 28rpx;
   z-index: 60;
-  width: 28rpx;
-  height: 28rpx;
+  width: 28rpx; height: 28rpx;
   border-radius: 50%;
   background: rgba(15,23,42,.22);
 }
-.login-entry.authed {
-  background: rgba(15,23,42,.92);
-}
+.login-entry.authed { background: rgba(15,23,42,.92); }
 
+/* 登录弹窗 */
 .login-modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   z-index: 70;
   background: rgba(255,255,255,.92);
   display: flex;
@@ -59,40 +105,15 @@
   padding: 36rpx 32rpx;
   box-shadow: 0 16px 60px rgba(15,23,42,.08);
 }
-.login-title {
-  font-weight: 950;
-  font-size: 32rpx;
-  margin-bottom: 24rpx;
-}
-.login-field {
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  margin: 20rpx 0;
-}
-.login-label {
-  width: 80rpx;
-  font-weight: 650;
-  flex-shrink: 0;
-}
-.login-input {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 12rpx;
-  padding: 16rpx 20rpx;
-  font-size: 28rpx;
-}
-.login-actions {
-  display: flex;
-  gap: 20rpx;
-  margin-top: 28rpx;
-  justify-content: flex-end;
-}
+.login-title { font-weight: 950; font-size: 32rpx; margin-bottom: 24rpx; }
+.login-field { display: flex; align-items: center; gap: 24rpx; margin: 20rpx 0; }
+.login-label { width: 80rpx; font-weight: 650; flex-shrink: 0; }
+.login-input { flex: 1; border: 1px solid #e5e7eb; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; }
+.login-actions { display: flex; gap: 20rpx; margin-top: 28rpx; justify-content: flex-end; }
 
 .status-bar {
   position: fixed;
-  bottom: 100rpx;
-  left: 50%;
+  bottom: 100rpx; left: 50%;
   transform: translateX(-50%);
   z-index: 80;
   background: rgba(15,23,42,.85);
