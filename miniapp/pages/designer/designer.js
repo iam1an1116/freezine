@@ -77,7 +77,7 @@ Page({
     return new Promise(resolve => {
       const query = wx.createSelectorQuery();
       query.select('#zineCanvas')
-        .fields({ node: true, size: true, rect: true })
+        .fields({ node: true, size: true })
         .exec(res => {
           if (!res || !res[0] || !res[0].node) {
             setTimeout(() => { this._initCanvas().then(resolve); }, 200);
@@ -89,16 +89,20 @@ Page({
           canvas.width = w * dpr;
           canvas.height = h * dpr;
 
-          // 缓存 canvas 在屏幕上的实际位置（用于触摸坐标转换）
-          this._canvasRect = {
-            left: res[0].left || 0,
-            top: res[0].top || 0,
-            width: res[0].width || displayW,
-            height: res[0].height || displayH
-          };
-
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
           this._touchData = { lastX: 0, lastY: 0, dragging: false };
+
+          // 延迟获取 canvas 实际位置（等布局完成）
+          setTimeout(() => {
+            wx.createSelectorQuery().select('#zineCanvas')
+              .boundingClientRect().exec(r => {
+                if (r && r[0]) {
+                  this._canvasRect = r[0];
+                  console.log('canvas rect', JSON.stringify(this._canvasRect));
+                }
+              });
+          }, 150);
+
           resolve();
         });
     });
@@ -108,9 +112,10 @@ Page({
   onTouchStart(e) {
     if (!this.engine) return;
     const t = e.touches[0];
-    const rect = this._getCanvasRect();
-    const x = (t.x - rect.left) * (this.pageW / rect.width);
-    const y = (t.y - rect.top) * (this.pageH / rect.height);
+    if (!this._canvasRect) return;
+
+    const x = (t.x - this._canvasRect.left) * (this.pageW / this._canvasRect.width);
+    const y = (t.y - this._canvasRect.top) * (this.pageH / this._canvasRect.height);
 
     const hitId = this.engine.hitTest(x, y);
     if (hitId) {
@@ -124,11 +129,12 @@ Page({
   },
 
   onTouchMove(e) {
-    if (!this._touchData || !this._touchData.dragging || !this.engine) return;
+    if (!this._touchData || !this._touchData.dragging || !this.engine || !this._canvasRect) return;
     const t = e.touches[0];
-    const rect = this._getCanvasRect();
-    const dx = (t.x - this._touchData.lastX) * (this.pageW / rect.width);
-    const dy = (t.y - this._touchData.lastY) * (this.pageH / rect.height);
+    const scaleX = this.pageW / this._canvasRect.width;
+    const scaleY = this.pageH / this._canvasRect.height;
+    const dx = (t.x - this._touchData.lastX) * scaleX;
+    const dy = (t.y - this._touchData.lastY) * scaleY;
     this._touchData.lastX = t.x;
     this._touchData.lastY = t.y;
     this.engine.moveActive(dx, dy);
@@ -138,16 +144,6 @@ Page({
   onTouchEnd() {
     if (!this._touchData) return;
     this._touchData.dragging = false;
-  },
-
-  _getCanvasRect() {
-    // 使用初始化时缓存的真实位置
-    if (this._canvasRect) return this._canvasRect;
-    // 回退：估算值
-    const sys = wx.getSystemInfoSync();
-    const w = Math.round(this.pageW * Math.min((sys.windowWidth - 32) / this.pageW, (sys.windowHeight - 380) / this.pageH));
-    const h = Math.round(this.pageH * Math.min((sys.windowWidth - 32) / this.pageW, (sys.windowHeight - 380) / this.pageH));
-    return { left: (sys.windowWidth - w) / 2, top: 100, width: w, height: h };
   },
 
   _syncActive() {
