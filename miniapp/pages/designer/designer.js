@@ -110,10 +110,27 @@ Page({
   _toCanvasY(ty) { return ty * (this.pageH / Math.max(1, this.data.canvasStyleH || 300)); },
 
   onCanvasTap(e) {
+    wx.showToast({ title: 'tap!', icon: 'none', duration: 300 });
     if (!this.engine) return;
-    // overlay 和 canvas 位置尺寸完全相同，detail.x/y 就是相对 canvas CSS 的坐标
-    const cx = this._toCanvasX(e.detail.x || 0);
-    const cy = this._toCanvasY(e.detail.y || 0);
+
+    // cover-view fill 了整个 canvas-wrap，需要减掉 canvas 在 wrap 内的偏移
+    const cw = this.data.canvasStyleW || 300;
+    const ch = this.data.canvasStyleH || 300;
+    const dx = e.detail.x || 0;
+    const dy = e.detail.y || 0;
+
+    // canvas 在 canvas-wrap 中居中，偏移需要从 overlay rect 和 canvas rect 算
+    let cx, cy;
+    if (this._overlayRect && this._overlayRect.width > 0) {
+      // canvas CSS 尺寸 vs overlay CSS 尺寸
+      const offsetX = (this._overlayRect.width - cw) / 2;
+      const offsetY = (this._overlayRect.height - ch) / 2;
+      cx = Math.max(0, dx - offsetX) * (this.pageW / cw);
+      cy = Math.max(0, dy - offsetY) * (this.pageH / ch);
+    } else {
+      cx = dx * (this.pageW / cw);
+      cy = dy * (this.pageH / ch);
+    }
 
     const hitId = this.engine.hitTest(cx, cy);
     this.engine.setActive(hitId || null);

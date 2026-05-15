@@ -105,9 +105,6 @@
   border-radius: 18rpx;
   overflow: hidden;
   min-height: 500rpx;
-}
-
-.canvas-stage {
   position: relative;
 }
 
