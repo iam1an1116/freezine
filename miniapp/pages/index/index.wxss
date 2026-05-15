@@ -1,188 +1,25 @@
-.home-view {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #f1f5f9;
-}
+.home-view { position:relative; width:100vw; height:100vh; overflow:hidden; background:#f1f5f9; }
+.physics-canvas { position:absolute; top:0; left:0; width:100%; height:100%; }
 
-/* 图标墙 */
-.icons-wall {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: 1;
-}
-.zine-item {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.zine-icon-btn {
-  border-radius: 14px;
-  border: 1px solid rgba(0,0,0,.10);
-  background: #fff;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0,0,0,.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.zine-icon-img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.zine-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(79,70,229,.08);
-  color: rgba(79,70,229,.55);
-  font-weight: 900;
-  font-size: 24rpx;
-}
-.zine-name {
-  margin-top: 6rpx;
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #334155;
-  max-width: 120rpx;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.search-page { position:fixed; top:0; left:0; width:100%; height:100%; z-index:50; background:#fff; display:flex; flex-direction:column; }
+.search-top { padding:20rpx 24rpx; border-bottom:1px solid #f1f5f9; }
+.search-row { display:flex; align-items:center; gap:12rpx; }
+.search-input { flex:1; border:1px solid #e5e7eb; border-radius:999px; padding:16rpx 24rpx; font-size:28rpx; background:#f8fafc; }
+.search-results { flex:1; padding:16rpx 24rpx; }
+.search-item { display:flex; align-items:center; gap:20rpx; padding:20rpx 0; border-bottom:1px solid #f5f5f5; }
+.search-thumb { width:72rpx; height:72rpx; border-radius:12rpx; background:#f1f5f9; }
+.search-thumb-bg { width:72rpx; height:72rpx; border-radius:12rpx; background:rgba(79,70,229,.08); display:flex; align-items:center; justify-content:center; font-weight:700; color:rgba(79,70,229,.5); font-size:24rpx; }
+.search-info { flex:1; }
+.search-title { font-weight:700; font-size:28rpx; color:#111827; }
+.search-pages { font-size:22rpx; color:#94a3b8; display:block; }
+.search-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28rpx; color:#94a3b8; font-size:28rpx; }
 
-.home-enter-btn {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
-}
+.login-modal { position:fixed; top:0; left:0; width:100%; height:100%; z-index:70; background:rgba(255,255,255,.94); display:flex; align-items:center; justify-content:center; }
+.login-card { width:640rpx; border:1px solid #e5e7eb; border-radius:18px; background:#fff; padding:36rpx 32rpx; box-shadow:0 16px 60px rgba(15,23,42,.08); }
+.login-title { font-weight:950; font-size:32rpx; margin-bottom:24rpx; }
+.login-field { display:flex; align-items:center; gap:24rpx; margin:20rpx 0; }
+.login-label { width:80rpx; font-weight:650; flex-shrink:0; }
+.login-input { flex:1; border:1px solid #e5e7eb; border-radius:12rpx; padding:16rpx 20rpx; font-size:28rpx; }
+.login-actions { display:flex; gap:20rpx; margin-top:28rpx; justify-content:flex-end; }
 
-.top-tools {
-  position: absolute;
-  top: 24rpx; right: 24rpx;
-  z-index: 10;
-  display: flex;
-  gap: 12rpx;
-}
-
-.login-entry {
-  position: fixed;
-  bottom: 28rpx; left: 28rpx;
-  z-index: 60;
-  width: 28rpx; height: 28rpx;
-  border-radius: 50%;
-  background: rgba(15,23,42,.22);
-}
-.login-entry.authed { background: rgba(15,23,42,.92); }
-
-/* 搜索页 */
-.search-page {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: 50;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-}
-.search-top {
-  padding: 20rpx 24rpx;
-  border-bottom: 1px solid #f1f5f9;
-}
-.search-row {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-.search-input {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  padding: 16rpx 24rpx;
-  font-size: 28rpx;
-  background: #f8fafc;
-}
-.search-results {
-  flex: 1;
-  padding: 16rpx 24rpx;
-}
-.search-item {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  padding: 20rpx 0;
-  border-bottom: 1px solid #f5f5f5;
-}
-.search-thumb {
-  width: 72rpx; height: 72rpx;
-  border-radius: 12rpx;
-  background: #f1f5f9;
-}
-.search-thumb-bg {
-  width: 72rpx; height: 72rpx;
-  border-radius: 12rpx;
-  background: rgba(79,70,229,.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: rgba(79,70,229,.5);
-  font-size: 24rpx;
-}
-.search-info { flex: 1; }
-.search-title { font-weight: 700; font-size: 28rpx; color: #111827; }
-.search-pages { font-size: 22rpx; color: #94a3b8; display: block; }
-.search-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 28rpx;
-  color: #94a3b8;
-  font-size: 28rpx;
-}
-
-/* 登录 */
-.login-modal {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: 70;
-  background: rgba(255,255,255,.94);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.login-card {
-  width: 640rpx;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  background: #fff;
-  padding: 36rpx 32rpx;
-  box-shadow: 0 16px 60px rgba(15,23,42,.08);
-}
-.login-title { font-weight: 950; font-size: 32rpx; margin-bottom: 24rpx; }
-.login-field { display: flex; align-items: center; gap: 24rpx; margin: 20rpx 0; }
-.login-label { width: 80rpx; font-weight: 650; flex-shrink: 0; }
-.login-input { flex: 1; border: 1px solid #e5e7eb; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; }
-.login-actions { display: flex; gap: 20rpx; margin-top: 28rpx; justify-content: flex-end; }
-
-.status-bar {
-  position: fixed;
-  bottom: 100rpx; left: 50%;
-  transform: translateX(-50%);
-  z-index: 80;
-  background: rgba(15,23,42,.85);
-  color: #fff;
-  padding: 16rpx 36rpx;
-  border-radius: 999px;
-  font-size: 24rpx;
-}
+.status-bar { position:fixed; bottom:100rpx; left:50%; transform:translateX(-50%); z-index:80; background:rgba(15,23,42,.85); color:#fff; padding:16rpx 36rpx; border-radius:999px; font-size:24rpx; }
