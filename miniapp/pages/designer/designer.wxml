@@ -1,16 +1,16 @@
 <view class="page">
   <!-- 顶部工具栏 -->
   <view class="bar top-bar">
-    <button class="b" bindtap="onBack">←</button>
-    <button class="b" bindtap="onAddText">文字</button>
-    <button class="b" bindtap="onAddImg">图片</button>
-    <button class="b" bindtap="onDel">删除</button>
-    <button class="b" bindtap="onUndo">撤销</button>
+    <button class="btn" bindtap="onBack">←</button>
+    <button class="btn" bindtap="onAddText">文字</button>
+    <button class="btn" bindtap="onAddImg">图片</button>
+    <button class="btn" bindtap="onDel">删除</button>
+    <button class="btn" bindtap="onUndo">撤销</button>
     <text class="info">{{pageInfo}}</text>
-    <button class="b" bindtap="onPrev">◀</button>
-    <button class="b" bindtap="onNext">▶</button>
-    <button class="b" bindtap="onGrid">{{gridOn ? '网格' : '⊞'}}</button>
-    <button class="b primary" bindtap="onSave">保存</button>
+    <button class="btn" bindtap="onPrev">◀</button>
+    <button class="btn" bindtap="onNext">▶</button>
+    <button class="btn" bindtap="onGrid">{{gridOn ? '网格' : '⊞'}}</button>
+    <button class="btn pri" bindtap="onSave">保存</button>
   </view>
 
   <!-- Canvas -->
@@ -22,28 +22,28 @@
 
   <!-- 底部工具栏 (有选中对象时显示) -->
   <view class="bar bottom-bar" wx:if="{{activeObj}}">
-    <button class="b" bindtap="onFontDown">A-</button>
-    <button class="b" bindtap="onFontUp">A+</button>
-    <button class="b" bindtap="onFontPick">字体</button>
-    <button class="b" bindtap="onColorPick">文字色</button>
-    <button class="b" bindtap="onBgPick">背景色</button>
-    <button class="b" bindtap="onScaleDown">-</button>
-    <button class="b" bindtap="onScaleUp">+</button>
-    <button class="b" bindtap="onMoveUp">↑</button>
-    <button class="b" bindtap="onMoveDown">↓</button>
+    <button class="btn" bindtap="onFontDown">A-</button>
+    <button class="btn" bindtap="onFontUp">A+</button>
+    <button class="btn" bindtap="onFontPick">字体</button>
+    <button class="btn" bindtap="onColorPick">文字色</button>
+    <button class="btn" bindtap="onBgPick">背景色</button>
+    <button class="btn" bindtap="onScaleDown">-</button>
+    <button class="btn" bindtap="onScaleUp">+</button>
+    <button class="btn" bindtap="onMoveUp">↑</button>
+    <button class="btn" bindtap="onMoveDown">↓</button>
   </view>
   <view class="bar bottom-bar" wx:if="{{activeObj}}">
-    <button class="b" bindtap="onMoveLeft">←</button>
-    <button class="b" bindtap="onMoveRight">→</button>
-    <button class="b" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</button>
+    <button class="btn" bindtap="onMoveLeft">←</button>
+    <button class="btn" bindtap="onMoveRight">→</button>
+    <button class="btn" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</button>
   </view>
 
   <!-- 底部设置栏（始终显示） -->
   <view class="bar bottom-bar">
-    <button class="b" bindtap="onGridSizeDown">网格-</button>
+    <button class="btn" bindtap="onGridSizeDown">网格-</button>
     <text class="info">{{gridSize}}px</text>
-    <button class="b" bindtap="onGridSizeUp">网格+</button>
-    <button class="b" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</button>
+    <button class="btn" bindtap="onGridSizeUp">网格+</button>
+    <button class="btn" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</button>
   </view>
 </view>
 
@@ -70,9 +70,9 @@
   <view class="modal-card" catchtap="">
     <view class="modal-title">网格设置</view>
     <view class="modal-row">
-      <button class="b" bindtap="onGridSizeDown">-</button>
+      <button class="btn" bindtap="onGridSizeDown">-</button>
       <text>{{gridSize}}px</text>
-      <button class="b" bindtap="onGridSizeUp">+</button>
+      <button class="btn" bindtap="onGridSizeUp">+</button>
     </view>
     <view class="modal-title">网格颜色</view>
     <view class="swatches">
