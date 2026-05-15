@@ -90,68 +90,48 @@ Page({
           canvas.height = h * dpr;
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
-          this._touchData = { lastX: 0, lastY: 0, dragging: false };
-
-          // 等布局完成获取 overlay 实际位置(用于 touchstart 坐标转换)
-          setTimeout(() => {
-            wx.createSelectorQuery().select('.canvas-overlay')
-              .boundingClientRect().exec(r => {
-                if (r && r[0] && r[0].width > 0) this._overlayRect = r[0];
-              });
-          }, 400);
-
           resolve();
         });
     });
   },
 
-  // ---------- Touch (cover-view 在 canvas 内部) ----------
-  onCanvasTap(e) {
-    wx.showToast({ title: 'tap!', icon: 'none', duration: 300 });
-    if (!this.engine) return;
-    const cw = Math.max(1, this.data.canvasStyleW || 300);
-    const ch = Math.max(1, this.data.canvasStyleH || 300);
-    const cx = (e.detail.x || 0) * (this.pageW / cw);
-    const cy = (e.detail.y || 0) * (this.pageH / ch);
-    const hitId = this.engine.hitTest(cx, cy);
-    this.engine.setActive(hitId || null);
+  // ---------- 对象选择与移动（按钮操控）----------
+  _activeObj() { return this.engine ? this.engine.getActive() : null; },
+
+  onSelectPrev() {
+    if (!this.engine || !this.engine.objects.length) return;
+    const cur = this.engine.activeId;
+    const idx = this.engine.objects.findIndex(o => o.id === cur);
+    const next = idx <= 0 ? this.engine.objects.length - 1 : idx - 1;
+    this.engine.setActive(this.engine.objects[next].id);
+    this._saveCurrentPage();
     this._syncActive();
   },
 
-  onTouchStart(e) {
-    if (!this.engine) return;
-    const t = e.touches[0];
-    this._touchData = { lx: t.x, ly: t.y, dragging: false };
-    // cover-view 在 canvas 内部，touch 坐标需减去 canvas viewport 位置
-    if (this._overlayRect) {
-      const sx = this.pageW / this._overlayRect.width;
-      const sy = this.pageH / this._overlayRect.height;
-      const cx = (t.x - this._overlayRect.left) * sx;
-      const cy = (t.y - this._overlayRect.top) * sy;
-      const hitId = this.engine.hitTest(cx, cy);
-      if (hitId) this.engine.setActive(hitId);
-      this._syncActive();
-    }
+  onSelectNext() {
+    if (!this.engine || !this.engine.objects.length) return;
+    const cur = this.engine.activeId;
+    const idx = this.engine.objects.findIndex(o => o.id === cur);
+    const next = idx < 0 || idx >= this.engine.objects.length - 1 ? 0 : idx + 1;
+    this.engine.setActive(this.engine.objects[next].id);
+    this._saveCurrentPage();
+    this._syncActive();
   },
 
-  onTouchMove(e) {
-    if (!this._touchData || !this.engine) return;
-    const t = e.touches[0];
-    const dx = t.x - this._touchData.lx;
-    const dy = t.y - this._touchData.ly;
-    if (!this._touchData.dragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
-      this._touchData.dragging = true;
-    }
-    if (!this._touchData.dragging) return;
-    const s = (this.pageW / Math.max(1, this.data.canvasStyleW || 300));
-    this.engine.moveActive(dx * s, dy * s);
-    this._touchData.lx = t.x; this._touchData.ly = t.y;
+  _moveObj(dx, dy) {
+    const obj = this._activeObj();
+    if (!obj) return;
+    obj.left += dx;
+    obj.top += dy;
+    this.engine.dirty = true;
+    this.engine.render();
     this._saveCurrentPage();
   },
 
-  onTouchEnd() {
-    if (this._touchData) this._touchData.dragging = false;
-  },
+  onMoveUp() { this._moveObj(0, -10); },
+  onMoveDown() { this._moveObj(0, 10); },
+  onMoveLeft() { this._moveObj(-10, 0); },
+  onMoveRight() { this._moveObj(10, 0); },
 
   _syncActive() {
     const obj = this.engine ? this.engine.getActive() : null;
