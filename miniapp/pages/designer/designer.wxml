@@ -122,14 +122,15 @@
     </view>
   </view>
 
-  <!-- 颜色选择弹窗 -->
-  <view class="modal" wx:if="{{showColor}}" catchtap="onColorClose">
-    <view class="modal-card" catchtap="">
-      <view class="modal-title">选择颜色</view>
-      <view class="swatches">
-        <view wx:for="{{colorPalette}}" wx:key="*this" class="swatch" style="background:{{item}}" bindtap="onPickColor" data-color="{{item}}"></view>
-      </view>
-      <button class="circle-btn small" bindtap="onColorClose" style="margin-top:24rpx;">关闭</button>
+</view>
+
+<!-- 颜色选择弹窗 (在 root 层) -->
+<view class="color-modal" wx:if="{{showColor}}" catchtap="onColorClose">
+  <view class="color-card" catchtap="noop">
+    <view class="color-title">选择颜色</view>
+    <view class="color-swatches">
+      <view wx:for="{{colorPalette}}" wx:key="*this" class="color-swatch" style="background:{{item}}" bindtap="onPickColor" data-color="{{item}}"></view>
     </view>
+    <button class="circle-btn small" bindtap="onColorClose" style="margin-top:24rpx;">关闭</button>
   </view>
 </view>

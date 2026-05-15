@@ -154,7 +154,7 @@ Page({
         const sy = Math.abs(nh) / Math.max(1, d.oh);
         // 等比缩放：取变化更大的那个方向
         const sc = Math.max(sx, sy);
-        const fs = Math.max(0.05, Math.min(5, sc));
+        const fs = Math.max(0.02, Math.min(5, sc));
         sel.left = Math.min(nl, d.ax);
         sel.top = Math.min(nt, d.ay);
         sel.scaleX = fs;
@@ -228,7 +228,7 @@ Page({
     const tw = ctx.measureText('文字').width;
     ctx.restore();
     const w = Math.max(60, Math.ceil(tw + 16));
-    const h = Math.ceil(fs * 1.6 + 12);
+    const h = Math.ceil(fs * 1.4 + 6);
     this.engine.addText('文字', { fill:this.data.fontColor, fontSize:fs, fontFamily:ff, width:w, height:h });
     this._saveCurrentPage(); this._syncActive();
   },
@@ -273,6 +273,7 @@ Page({
     this.setData({showColor:false});
   },
   onColorClose() { this.setData({showColor:false}); },
+  noop() {},
   onBorderPick(e) { this.setData({borderIdx:Number(e.detail.value)}); },
   onTitleInput(e) { this.setData({bookTitle:e.detail.value}); },
   onPageCountInput(e) { this.setData({pageCount:e.detail.value}); },
