@@ -54,24 +54,18 @@ Page({
 
   _renderPage(pw, ph, json) {
     return new Promise(resolve => {
-      // Use an offscreen canvas via createOffscreenCanvas or use a hidden canvas
-      const query = wx.createSelectorQuery();
-      // 使用 wx.createOffscreenCanvas 需要特定基础库版本
-      // 这里用 Canvas 2D API 创建一个临时 canvas
       const canvas = wx.createOffscreenCanvas({
-        type: '2d',
-        width: pw * 2,
-        height: ph * 2
+        type: '2d', width: pw * 2, height: ph * 2
       });
       const ctx = canvas.getContext('2d');
       ctx.scale(2, 2);
 
-      // bg
       const n = normalizeFabricJSON(json);
       ctx.fillStyle = n.background || '#ffffff';
       ctx.fillRect(0, 0, pw, ph);
 
-      // render objects
+      // 先画文字，收集图片
+      const imgTasks = [];
       for (const obj of n.objects) {
         ctx.save();
         if (obj.type === 'textbox' || obj.type === 'text') {
@@ -88,20 +82,37 @@ Page({
             ctx.fillText(lines[j], lx, obj.top + j * fs * 1.4);
           }
         } else if (obj.type === 'image' && obj.src) {
-          // Load image
-          const img = canvas.createImage();
-          img.src = obj.src;
-          // 同步绘制不现实，跳过图片
+          imgTasks.push(new Promise(done => {
+            const img = canvas.createImage();
+            img.onload = () => {
+              try {
+                const sw = (obj.width || 100) * (obj.scaleX || 1);
+                const sh = (obj.height || 100) * (obj.scaleY || 1);
+                ctx.drawImage(img, obj.left, obj.top, sw, sh);
+              } catch (_) {}
+              done();
+            };
+            img.onerror = () => done();
+            img.src = obj.src;
+          }));
         }
         ctx.restore();
       }
 
-      // Export
-      wx.canvasToTempFilePath({
-        canvas,
-        success: res => resolve(res.tempFilePath),
-        fail: () => resolve('')
-      });
+      // 等所有图片加载后再导出
+      const finalize = () => {
+        wx.canvasToTempFilePath({
+          canvas,
+          success: res => resolve(res.tempFilePath),
+          fail: () => resolve('')
+        });
+      };
+
+      if (imgTasks.length === 0) {
+        finalize();
+      } else {
+        Promise.all(imgTasks).then(finalize);
+      }
     });
   },
 
