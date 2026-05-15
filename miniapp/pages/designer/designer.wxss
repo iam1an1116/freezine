@@ -107,6 +107,16 @@
   min-height: 500rpx;
 }
 
+.canvas-stage {
+  position: relative;
+}
+
+.canvas-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+
 .zine-canvas {
   border: 1px solid #e5e7eb;
   border-radius: 8rpx;

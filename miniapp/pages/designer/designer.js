@@ -92,11 +92,11 @@ Page({
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
           this._touchData = { lastX: 0, lastY: 0, dragging: false };
 
-          // 等布局完成获取 canvas 实际位置
+          // 等布局完成获取 overlay 实际位置(用于 touchstart 坐标转换)
           setTimeout(() => {
-            wx.createSelectorQuery().select('#zineCanvas')
+            wx.createSelectorQuery().select('.canvas-overlay')
               .boundingClientRect().exec(r => {
-                if (r && r[0] && r[0].width > 0) this._canvasRect = r[0];
+                if (r && r[0] && r[0].width > 0) this._overlayRect = r[0];
               });
           }, 400);
 
@@ -105,32 +105,37 @@ Page({
     });
   },
 
-  // ---------- Touch ----------
-  // touchstart：命中检测 + 拖拽起点。用屏幕坐标减 canvas 实际位置
-  onTouchStart(e) {
-    if (!this.engine) return;
-    const t = e.touches[0];
-    this._touchData = { sx: t.x, sy: t.y, lx: t.x, ly: t.y, dragging: false };
+  // ---------- Touch (overlay view - 和 canvas 同尺寸同位置) ----------
+  _toCanvasX(tx) { return tx * (this.pageW / Math.max(1, this.data.canvasStyleW || 300)); },
+  _toCanvasY(ty) { return ty * (this.pageH / Math.max(1, this.data.canvasStyleH || 300)); },
 
-    if (this._canvasRect) {
-      const sx = this.pageW / this._canvasRect.width;
-      const sy = this.pageH / this._canvasRect.height;
-      const x = (t.x - this._canvasRect.left) * sx;
-      const y = (t.y - this._canvasRect.top) * sy;
-      const hitId = this.engine.hitTest(x, y);
-      if (hitId) {
-        this.engine.setActive(hitId);
-        this._touchData.hitOnStart = true;
-      } else {
-        this.engine.setActive(null);
-        this._touchData.hitOnStart = false;
-      }
-      this._syncActive();
-    }
+  onCanvasTap(e) {
+    if (!this.engine) return;
+    // overlay 和 canvas 位置尺寸完全相同，detail.x/y 就是相对 canvas CSS 的坐标
+    const cx = this._toCanvasX(e.detail.x || 0);
+    const cy = this._toCanvasY(e.detail.y || 0);
+
+    const hitId = this.engine.hitTest(cx, cy);
+    this.engine.setActive(hitId || null);
+    this._syncActive();
+  },
+
+  onTouchStart(e) {
+    if (!this.engine || !this._overlayRect) return;
+    const t = e.touches[0];
+    this._touchData = { lx: t.x, ly: t.y, dragging: false };
+
+    const sx = this.pageW / this._overlayRect.width;
+    const sy = this.pageH / this._overlayRect.height;
+    const cx = (t.x - this._overlayRect.left) * sx;
+    const cy = (t.y - this._overlayRect.top) * sy;
+    const hitId = this.engine.hitTest(cx, cy);
+    if (hitId) this.engine.setActive(hitId);
+    this._syncActive();
   },
 
   onTouchMove(e) {
-    if (!this._touchData || !this.engine) return;
+    if (!this._touchData || !this.engine || !this._overlayRect) return;
     const t = e.touches[0];
     const dx = t.x - this._touchData.lx;
     const dy = t.y - this._touchData.ly;
@@ -138,60 +143,15 @@ Page({
       this._touchData.dragging = true;
     }
     if (!this._touchData.dragging) return;
-    // 用 tap 坐标缩放：detail.x 是相对元素的，比 screen coords 更可靠
-    const s = this.pageW / Math.max(1, this.data.canvasStyleW || 300);
-    this.engine.moveActive(dx * s, dy * s);
+    const sx = this.pageW / this._overlayRect.width;
+    const sy = this.pageH / this._overlayRect.height;
+    this.engine.moveActive(dx * sx, dy * sy);
     this._touchData.lx = t.x; this._touchData.ly = t.y;
     this._saveCurrentPage();
   },
 
   onTouchEnd() {
     if (this._touchData) this._touchData.dragging = false;
-  },
-
-  // tap：优先用 detail.x/y (相对元素), 加调试红点
-  onCanvasTap(e) {
-    // 先验证事件到达
-    wx.showToast({ title: 'tap!', icon: 'none', duration: 500 });
-    if (!this.engine) { wx.showToast({ title: 'no engine', icon: 'none' }); return; }
-    const cw = Math.max(1, this.data.canvasStyleW || 300);
-    const ch = Math.max(1, this.data.canvasStyleH || 300);
-    const sx = this.pageW / cw;
-    const sy = this.pageH / ch;
-
-    // 优先 detail.x/y，没有则用 touch
-    let ex = e.detail.x, ey = e.detail.y;
-    if (ex == null && e.changedTouches && e.changedTouches[0]) {
-      ex = e.changedTouches[0].x; ey = e.changedTouches[0].y;
-      // 屏幕坐标需要减 canvas 位置
-      if (this._canvasRect) { ex -= this._canvasRect.left; ey -= this._canvasRect.top; }
-    }
-    if (ex == null) ex = 0;
-    if (ey == null) ey = 0;
-
-    const x = ex * sx, y = ey * sy;
-    console.log('tap', { ex, ey, x, y, sx, sy, cw, ch, pw: this.pageW, ph: this.pageH });
-
-    // 画个红点确认位置
-    const ctx = this.engine.ctx;
-    ctx.save();
-    const dpr = this.engine.dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = 'red';
-    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'white';
-    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    // 1秒后清除
-    setTimeout(() => this.engine && this.engine.render(), 1000);
-
-    const hitId = this.engine.hitTest(x, y);
-    if (hitId) {
-      this.engine.setActive(hitId);
-    } else {
-      this.engine.setActive(null);
-    }
-    this._syncActive();
   },
 
   _syncActive() {
