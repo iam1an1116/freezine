@@ -61,7 +61,7 @@
     </view>
 
     <!-- 对象选择与移动 -->
-    <view class="toolbar" wx:if="{{activeObj}}">
+    <view class="toolbar">
       <button class="circle-btn small" bindtap="onSelectPrev">上一个</button>
       <button class="circle-btn small" bindtap="onSelectNext">下一个</button>
       <button class="circle-btn small" bindtap="onMoveUp">↑</button>

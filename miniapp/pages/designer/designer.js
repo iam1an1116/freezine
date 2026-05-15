@@ -102,7 +102,7 @@ Page({
     if (!this.engine || !this.engine.objects.length) return;
     const cur = this.engine.activeId;
     const idx = this.engine.objects.findIndex(o => o.id === cur);
-    const next = idx <= 0 ? this.engine.objects.length - 1 : idx - 1;
+    const next = (idx < 0 || idx === 0) ? this.engine.objects.length - 1 : idx - 1;
     this.engine.setActive(this.engine.objects[next].id);
     this._saveCurrentPage();
     this._syncActive();
@@ -112,7 +112,7 @@ Page({
     if (!this.engine || !this.engine.objects.length) return;
     const cur = this.engine.activeId;
     const idx = this.engine.objects.findIndex(o => o.id === cur);
-    const next = idx < 0 || idx >= this.engine.objects.length - 1 ? 0 : idx + 1;
+    const next = (idx < 0 || idx >= this.engine.objects.length - 1) ? 0 : idx + 1;
     this.engine.setActive(this.engine.objects[next].id);
     this._saveCurrentPage();
     this._syncActive();
