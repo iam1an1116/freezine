@@ -67,6 +67,7 @@
         id="zineCanvas"
         class="zine-canvas"
         style="width: {{canvasStyleW}}px; height: {{canvasStyleH}}px;"
+        disable-scroll="true"
         catchtap="onCanvasTap"
         catchtouchstart="onTouchStart"
         catchtouchmove="onTouchMove"

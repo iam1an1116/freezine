@@ -22,7 +22,9 @@
 .panel {
   flex: 1;
   padding: 24rpx;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 设置面板 */
