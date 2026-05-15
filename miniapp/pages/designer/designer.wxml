@@ -93,11 +93,11 @@
         </view>
         <view class="style-item">
           <text class="style-label">字色</text>
-          <input class="color-input" type="text" value="{{fontColor}}" bindinput="onFontColorInput" style="width:120rpx;" />
+          <view class="color-dot" style="background:{{fontColor}}" bindtap="onFontColorTap"></view>
         </view>
         <view class="style-item">
           <text class="style-label">背景</text>
-          <input class="color-input" type="text" value="{{bgColor}}" bindinput="onBgColorInput" style="width:120rpx;" />
+          <view class="color-dot" style="background:{{bgColor}}" bindtap="onBgColorTap"></view>
         </view>
         <view class="style-item">
           <text class="style-label">边框</text>
@@ -119,6 +119,17 @@
     <view class="editor-actions">
       <button class="circle-btn primary" bindtap="onFinish">完成并封装成图标</button>
       <text class="status">{{status}}</text>
+    </view>
+  </view>
+
+  <!-- 颜色选择弹窗 -->
+  <view class="modal" wx:if="{{showColor}}" catchtap="onColorClose">
+    <view class="modal-card" catchtap="">
+      <view class="modal-title">选择颜色</view>
+      <view class="swatches">
+        <view wx:for="{{colorPalette}}" wx:key="*this" class="swatch" style="background:{{item}}" bindtap="onPickColor" data-color="{{item}}"></view>
+      </view>
+      <button class="circle-btn small" bindtap="onColorClose" style="margin-top:24rpx;">关闭</button>
     </view>
   </view>
 </view>

@@ -16,7 +16,8 @@ Page({
     borderIdx:0, borderOptions:['灰色边框','黑色边框','无边框'],
     fontFamilyIdx:0, fontFamilies:['无衬线','衬线','宋体','楷体','仿宋','等宽','圆体','手写风'],
     fontFamilyValues:['sans-serif','serif','"Songti SC", serif','"Kaiti SC", serif','"FangSong", serif','monospace','"Hiragino Maru Gothic ProN", sans-serif','cursive'],
-    activeObj:false, activeObjScale:'1.00x', status:''
+    activeObj:false, activeObjScale:'1.00x', status:'',
+    showColor:false, colorTarget:'', colorPalette:['#0f172a','#334155','#475569','#64748b','#94a3b8','#cbd5e1','#e2e8f0','#f1f5f9','#ffffff','#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#78716c','#000000']
   },
   engine:null, pageStates:[], pageW:0, pageH:0, _zineId:null, _dragData:null, _lt:null,
 
@@ -149,10 +150,15 @@ Page({
         } else { // 右下 → 锚点在左上
           nw = hx - d.ax; nh = hy - d.ay;
         }
+        const sx = Math.abs(nw) / Math.max(1, d.ow);
+        const sy = Math.abs(nh) / Math.max(1, d.oh);
+        // 等比缩放：取变化更大的那个方向
+        const sc = Math.max(sx, sy);
+        const fs = Math.max(0.05, Math.min(5, sc));
         sel.left = Math.min(nl, d.ax);
         sel.top = Math.min(nt, d.ay);
-        sel.scaleX = Math.max(0.05, Math.min(5, Math.abs(nw) / Math.max(1, d.ow)));
-        sel.scaleY = Math.max(0.05, Math.min(5, Math.abs(nh) / Math.max(1, d.oh)));
+        sel.scaleX = fs;
+        sel.scaleY = fs;
         this.engine.dirty = true; this.engine.render();
       });
     } else {
@@ -213,7 +219,17 @@ Page({
   // ====== 工具 ======
   onAddText() {
     if(!this.engine) return;
-    this.engine.addText('文字', { fill:this.data.fontColor, fontSize:Math.round(28*this.data.fontScale), fontFamily:this.data.fontFamilyValues[this.data.fontFamilyIdx] });
+    const fs = Math.round(28*this.data.fontScale);
+    const ff = this.data.fontFamilyValues[this.data.fontFamilyIdx];
+    // 用 canvas 实际测量文字宽度
+    const ctx = this.engine.ctx;
+    ctx.save();
+    ctx.font = `${fs}px ${ff}`;
+    const tw = ctx.measureText('文字').width;
+    ctx.restore();
+    const w = Math.max(60, Math.ceil(tw + 16));
+    const h = Math.ceil(fs * 1.6 + 12);
+    this.engine.addText('文字', { fill:this.data.fontColor, fontSize:fs, fontFamily:ff, width:w, height:h });
     this._saveCurrentPage(); this._syncActive();
   },
 
@@ -242,8 +258,21 @@ Page({
   // ====== 样式 ======
   onFontScale(e) { const v=e.detail.value; this.setData({fontScale:v,fontScaleText:v.toFixed(2)+'x'}); const o=this.engine?.getActive(); if(o&&(o.type==='textbox'||o.type==='text')){this.engine.updateActive({fontSize:Math.round(28*v)});this._saveCurrentPage();} },
   onFontPick(e) { const i=Number(e.detail.value); this.setData({fontFamilyIdx:i}); const o=this.engine?.getActive(); if(o&&(o.type==='textbox'||o.type==='text')){this.engine.updateActive({fontFamily:this.data.fontFamilyValues[i]});this._saveCurrentPage();} },
-  onFontColorInput(e) { const v=e.detail.value; this.setData({fontColor:v}); const o=this.engine?.getActive(); if(o&&(o.type==='textbox'||o.type==='text')&&/^#[0-9a-fA-F]{6}$/.test(v)){this.engine.updateActive({fill:v});this._saveCurrentPage();} },
-  onBgColorInput(e) { const v=e.detail.value; this.setData({bgColor:v}); if(/^#[0-9a-fA-F]{6}$/.test(v)&&this.engine){this.engine.setBackground(v);this._saveCurrentPage();} },
+  onFontColorTap() { this.setData({showColor:true, colorTarget:'font'}); },
+  onBgColorTap() { this.setData({showColor:true, colorTarget:'bg'}); },
+  onPickColor(e) {
+    const c = e.currentTarget.dataset.color;
+    if (this.data.colorTarget === 'font') {
+      this.setData({fontColor:c});
+      const o = this.engine?.getActive();
+      if (o && (o.type==='textbox'||o.type==='text')) { this.engine.updateActive({fill:c}); this._saveCurrentPage(); }
+    } else {
+      this.setData({bgColor:c});
+      if (this.engine) { this.engine.setBackground(c); this._saveCurrentPage(); }
+    }
+    this.setData({showColor:false});
+  },
+  onColorClose() { this.setData({showColor:false}); },
   onBorderPick(e) { this.setData({borderIdx:Number(e.detail.value)}); },
   onTitleInput(e) { this.setData({bookTitle:e.detail.value}); },
   onPageCountInput(e) { this.setData({pageCount:e.detail.value}); },
