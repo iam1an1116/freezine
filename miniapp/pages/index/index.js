@@ -11,7 +11,9 @@ Page({
     loginPass: '',
     status: '',
     showSearch: false,
-    searchQuery: ''
+    searchQuery: '',
+    searchResults: [],
+    searchDone: false
   },
 
   _bodies: [],
@@ -24,9 +26,9 @@ Page({
   // Button hit areas (set in render)
   _btns: {},
 
-  onLoad() {
+  async onLoad() {
     this.setData({ admin: auth.isAdmin() });
-    this._initCanvas();
+    await this._initCanvas();
     this._load();
   },
 
@@ -44,14 +46,20 @@ Page({
     this._w = sys.windowWidth;
     this._h = sys.windowHeight;
     this._dpr = sys.pixelRatio || 2;
-    const query = wx.createSelectorQuery();
-    query.select('#physicsCanvas').fields({ node: true, size: true }).exec(res => {
-      if (!res || !res[0]) return setTimeout(() => this._initCanvas(), 200);
-      this._canvas = res[0].node;
-      this._canvas.width = this._w * this._dpr;
-      this._canvas.height = this._h * this._dpr;
-      this._ctx = this._canvas.getContext('2d');
-      this._startLoop();
+    return new Promise(resolve => {
+      const query = wx.createSelectorQuery();
+      query.select('#physicsCanvas').fields({ node: true, size: true }).exec(res => {
+        if (!res || !res[0]) {
+          setTimeout(() => this._initCanvas().then(resolve), 200);
+          return;
+        }
+        this._canvas = res[0].node;
+        this._canvas.width = this._w * this._dpr;
+        this._canvas.height = this._h * this._dpr;
+        this._ctx = this._canvas.getContext('2d');
+        this._startLoop();
+        resolve();
+      });
     });
   },
 
@@ -70,14 +78,22 @@ Page({
   },
 
   async _search(q) {
-    this.setData({ status: '搜索中…' });
+    if (!q || !q.trim()) return;
+    this.setData({ status: '搜索中…', searchDone: false });
     try {
       const res = await api.searchZines(q.trim());
-      this._buildBodies((res && res.items) || [], true);
-      const n = this._bodies.length;
-      this.setData({ status: n > 0 ? `找到 ${n} 个` : `无匹配 "${q}"` });
+      const items = (res && res.items) || [];
+      this.setData({
+        searchResults: items,
+        searchDone: true,
+        status: ''
+      });
     } catch (e) {
-      this.setData({ status: '搜索失败' });
+      this.setData({
+        searchResults: [],
+        searchDone: true,
+        status: `搜索失败: ${e.message || '未知错误'}`
+      });
     }
   },
 
@@ -358,15 +374,25 @@ Page({
     this._bodies = [];
     this._load();
   },
-  onSearchTap() { this.setData({ showSearch: true, searchQuery: '' }); },
+  onSearchTap() {
+    this._stopLoop();
+    this.setData({ showSearch: true, searchQuery: '', searchResults: [], searchDone: false });
+  },
   onSearchInput(e) { this.setData({ searchQuery: e.detail.value }); },
   onSearchConfirm() {
     const q = this.data.searchQuery.trim();
     if (q) this._search(q);
   },
   onSearchCancel() {
-    this.setData({ showSearch: false, searchQuery: '' });
-    this._load();
+    this.setData({ showSearch: false, searchQuery: '', searchResults: [], searchDone: false });
+    // 重新初始化 canvas（因为 wx:if 销毁了旧 canvas）
+    this._canvas = null;
+    this._ctx = null;
+    this._initCanvas().then(() => this._load());
+  },
+  onSearchItemTap(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.navigateTo({ url: '/pages/book/book?zine=' + encodeURIComponent(id) });
   },
   onLoginTap() { this.setData({ showLogin: true, loginUser: '', loginPass: '' }); },
   onCancelLogin() { this.setData({ showLogin: false }); },

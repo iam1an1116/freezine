@@ -12,32 +12,6 @@
   width: 100%; height: 100%;
 }
 
-/* 搜索栏 (cover-view) */
-.search-bar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  z-index: 10;
-  background: rgba(255,255,255,.96);
-  padding: 20rpx 24rpx;
-}
-.search-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-}
-.search-input {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  padding: 16rpx 28rpx;
-  font-size: 28rpx;
-  background: #f8fafc;
-  height: 36px;
-}
-.search-cancel {
-  flex-shrink: 0;
-}
-
 /* 登录弹窗 */
 .login-modal {
   position: fixed;
@@ -62,6 +36,87 @@
 .login-label { width: 80rpx; font-weight: 650; flex-shrink: 0; }
 .login-input { flex: 1; border: 1px solid #e5e7eb; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; }
 .login-actions { display: flex; gap: 20rpx; margin-top: 28rpx; justify-content: flex-end; }
+
+/* 搜索页 */
+.search-page {
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.search-top {
+  padding: 20rpx 24rpx;
+  border-bottom: 1px solid #f1f5f9;
+}
+.search-results {
+  flex: 1;
+  padding: 16rpx 24rpx;
+}
+.search-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+.search-thumb {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+  background: #f1f5f9;
+}
+.search-thumb-placeholder {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+  background: rgba(79,70,229,.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: rgba(79,70,229,.5);
+  font-size: 24rpx;
+}
+.search-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.search-title {
+  font-weight: 700;
+  font-size: 28rpx;
+  color: #111827;
+}
+.search-pages {
+  font-size: 22rpx;
+  color: #94a3b8;
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.search-input {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 16rpx 28rpx;
+  font-size: 28rpx;
+  background: #f8fafc;
+}
+.search-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28rpx;
+  color: #94a3b8;
+  font-size: 28rpx;
+}
 
 .status-bar {
   position: fixed;

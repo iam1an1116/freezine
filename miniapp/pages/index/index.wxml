@@ -1,27 +1,58 @@
 <view class="home-view">
+  <!-- Canvas（搜索时隐藏，因为 input 没法在 canvas 上用） -->
   <canvas
+    wx:if="{{!showSearch}}"
     type="2d"
     id="physicsCanvas"
     class="physics-canvas"
     bindtap="onCanvasTap"
   ></canvas>
 
-  <!-- 搜索栏（在 canvas 上方，canvas 内绘制搜索输入框受限，所以单独放） -->
-  <cover-view class="search-bar {{showSearch ? '' : 'hidden'}}">
-    <cover-view class="search-row">
-      <input
-        class="search-input"
-        value="{{searchQuery}}"
-        bindinput="onSearchInput"
-        bindconfirm="onSearchConfirm"
-        placeholder="搜索 ZINE…"
-        focus="{{showSearch}}"
-      />
-      <cover-view class="circle-btn small search-cancel" bindtap="onSearchCancel">取消</cover-view>
-    </cover-view>
-  </cover-view>
+  <!-- 搜索模式：普通 view，不受 canvas 层级影响 -->
+  <view class="search-page" wx:if="{{showSearch}}">
+    <view class="search-top">
+      <view class="search-row">
+        <input
+          class="search-input"
+          value="{{searchQuery}}"
+          bindinput="onSearchInput"
+          bindconfirm="onSearchConfirm"
+          placeholder="搜索 ZINE 名称…"
+          focus="{{true}}"
+        />
+        <button class="circle-btn small" bindtap="onSearchCancel">取消</button>
+      </view>
+    </view>
+    <scroll-view class="search-results" scroll-y wx:if="{{searchResults.length > 0}}">
+      <view
+        wx:for="{{searchResults}}"
+        wx:key="id"
+        class="search-item"
+        bindtap="onSearchItemTap"
+        data-id="{{item.id}}"
+      >
+        <image
+          wx:if="{{item.iconDataURL}}"
+          class="search-thumb"
+          src="{{item.iconDataURL}}"
+          mode="aspectFill"
+        />
+        <view wx:else class="search-thumb-placeholder">
+          <text>{{item.title ? item.title.slice(0,2) : 'Z'}}</text>
+        </view>
+        <view class="search-info">
+          <text class="search-title">{{item.title || '未命名'}}</text>
+          <text class="search-pages" wx:if="{{item.pageCount}}">{{item.pageCount}} 页</text>
+        </view>
+      </view>
+    </scroll-view>
+    <view class="search-empty" wx:if="{{searchDone && searchResults.length === 0}}">
+      <text>未找到匹配的 ZINE</text>
+      <button class="circle-btn small" bindtap="onSearchCancel">返回主页</button>
+    </view>
+  </view>
 
-  <!-- 登录弹窗（全屏遮罩，canvas 在下面不影响） -->
+  <!-- 登录弹窗 -->
   <view class="login-modal {{showLogin ? '' : 'hidden'}}" catchtap="onCancelLogin">
     <view class="login-card" catchtap="stopProp">
       <view class="login-title">管理员登录</view>
@@ -40,5 +71,5 @@
     </view>
   </view>
 
-  <cover-view class="status-bar" wx:if="{{status}}">{{status}}</cover-view>
+  <view class="status-bar" wx:if="{{status}}">{{status}}</view>
 </view>
