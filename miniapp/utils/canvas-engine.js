@@ -309,14 +309,17 @@ class CanvasEngine {
         ctx.setLineDash([4, 2]);
         ctx.strokeRect(ox - 2, oy - 2, sw3 + 4, sh3 + 4);
         ctx.setLineDash([]);
-        // handle dots
-        ctx.fillStyle = '#4f46e5';
-        [
-          [ox - 4, oy - 4], [ox + sw3 - 4, oy - 4],
-          [ox - 4, oy + sh3 - 4], [ox + sw3 - 4, oy + sh3 - 4]
-        ].forEach(([hx, hy]) => {
-          ctx.fillRect(hx, hy, 8, 8);
-        });
+        // 8个手柄：4角 + 4边中点
+        const hs = 6, hw = 12; // 半尺寸、全尺寸
+        const pts = [
+          [ox-hs, oy-hs], [ox+sw3-hs, oy-hs], [ox-hs, oy+sh3-hs], [ox+sw3-hs, oy+sh3-hs],
+          [ox+sw3/2-hs, oy-hs], [ox+sw3/2-hs, oy+sh3-hs],
+          [ox-hs, oy+sh3/2-hs], [ox+sw3-hs, oy+sh3/2-hs]
+        ];
+        ctx.fillStyle = '#fff';
+        pts.forEach(([x,y]) => ctx.fillRect(x-1, y-1, hw+2, hw+2));
+        ctx.fillStyle = '#6366f1';
+        pts.forEach(([x,y]) => ctx.fillRect(x, y, hw, hw));
       }
 
       ctx.restore();

@@ -69,23 +69,32 @@ Page({
       let hitId = this.engine.hitTest(cx1, cy1);
       if (!hitId) hitId = this.engine.hitTest(cx2, cy2);
 
-      // 角落手柄检测
-      let corner = -1;
+      // 8个手柄检测 (4角 + 4边中点)
+      let handle = -1;
       const sel = this.engine.activeId ? this.engine.objects.find(o => o.id === this.engine.activeId) : null;
       if (sel) {
         const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
-        const hs = [
-          {x:ox-6, y:oy-6}, {x:ox+sw-6, y:oy-6},
-          {x:ox-6, y:oy+sh-6}, {x:ox+sw-6, y:oy+sh-6}
+        const hs = 10; // 手柄半径
+        const pts = [
+          {x:ox, y:oy},           // 0:左上
+          {x:ox+sw, y:oy},        // 1:右上
+          {x:ox, y:oy+sh},        // 2:左下
+          {x:ox+sw, y:oy+sh},     // 3:右下
+          {x:ox+sw/2, y:oy},      // 4:上中 (纵向)
+          {x:ox+sw/2, y:oy+sh},   // 5:下中 (纵向)
+          {x:ox, y:oy+sh/2},      // 6:左中 (横向)
+          {x:ox+sw, y:oy+sh/2}    // 7:右中 (横向)
         ];
-        for (let hi = 0; hi < 4; hi++) {
-          if (cx2 >= hs[hi].x && cx2 <= hs[hi].x+12 && cy2 >= hs[hi].y && cy2 <= hs[hi].y+12) { corner = hi; break; }
+        for (let hi = 0; hi < 8; hi++) {
+          if (Math.abs(cx2 - pts[hi].x) <= hs && Math.abs(cy2 - pts[hi].y) <= hs) {
+            handle = hi; break;
+          }
         }
       }
 
       // 双击编辑文字
       const now = Date.now();
-      if (corner < 0 && hitId && this._lt && this._lt.id === hitId && (now - this._lt.t) < 400) {
+      if (handle < 0 && hitId && this._lt && this._lt.id === hitId && (now - this._lt.t) < 400) {
         const obj = this.engine.objects.find(o => o.id === hitId);
         if (obj && (obj.type==='textbox'||obj.type==='text')) {
           wx.showModal({
@@ -101,18 +110,12 @@ Page({
           this._lt = null; return;
         }
       }
-      this._lt = (corner < 0 && hitId) ? {id:hitId, t:now} : null;
+      this._lt = (handle < 0 && hitId) ? {id:hitId, t:now} : null;
 
-      if (corner >= 0) {
+      if (handle >= 0) {
         this.engine.setActive(sel.id);
-        // 记录锚点（对面角落）的绝对位置
         const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
-        let ax, ay; // anchor
-        if (corner === 0) { ax = ox+sw; ay = oy+sh; }        // 左上→锚点在右下
-        else if (corner === 1) { ax = ox; ay = oy+sh; }       // 右上→锚点在左下
-        else if (corner === 2) { ax = ox+sw; ay = oy; }       // 左下→锚点在右上
-        else { ax = ox; ay = oy; }                              // 右下→锚点在左上
-        this._dragData = { lx:t.x, ly:t.y, corner, ax, ay, ow:sel.width||40, oh:sel.height||40, ox, oy };
+        this._dragData = { lx:t.x, ly:t.y, handle, ow:sel.width||40, oh:sel.height||40, ox, oy, sw, sh };
       } else if (hitId) {
         this.engine.setActive(hitId);
         this._dragData = { lx:t.x, ly:t.y };
@@ -131,34 +134,41 @@ Page({
     const dx = t.x-this._dragData.lx, dy = t.y-this._dragData.ly;
     if (Math.abs(dx)<3 && Math.abs(dy)<3) return;
 
-    if (this._dragData.corner >= 0) {
+    if (this._dragData.handle >= 0) {
       const sel = this.engine.objects.find(o => o.id === this.engine.activeId);
       if (!sel) return;
       this._getRect(rect => {
         const s = this.pageW / Math.max(1, rect.width);
-        const hx = this._dragData.ox + dx * s;  // 手柄当前 canvas 坐标
+        const hx = this._dragData.ox + dx * s;
         const hy = this._dragData.oy + dy * s;
         const d = this._dragData;
-        // 根据锚点计算新的尺寸和位置
-        let nl = d.ox, nt = d.oy, nw = d.ow, nh = d.oh;
-        if (d.corner === 0) { // 左上 → 锚点在右下
-          nl = hx; nt = hy; nw = d.ax - nl; nh = d.ay - nt;
-        } else if (d.corner === 1) { // 右上 → 锚点在左下
-          nt = hy; nw = hx - d.ax; nh = d.ay - nt;
-        } else if (d.corner === 2) { // 左下 → 锚点在右上
-          nl = hx; nw = d.ax - nl; nh = hy - d.ay;
-        } else { // 右下 → 锚点在左上
-          nw = hx - d.ax; nh = hy - d.ay;
+        const h = d.handle;
+
+        let nsx = sel.scaleX, nsy = sel.scaleY, nl = sel.left, nt = sel.top;
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+        if (h <= 3) {
+          // 角：等比缩放
+          const ds = Math.max(Math.abs(hx - d.ox) / d.sw, Math.abs(hy - d.oy) / d.sh);
+          const dir = (h === 0 || h === 3) ? 1 : -1;
+          const sc = clamp((sel.scaleX||1) + ds * dir * (h <= 1 ? -1 : 1), 0.02, 5);
+          nsx = nsy = sc;
+          if (h === 0) { nl = d.ox + d.sw - d.ow * sc; nt = d.oy + d.sh - d.oh * sc; }
+          else if (h === 1) { nt = d.oy + d.sh - d.oh * sc; }
+          else if (h === 2) { nl = d.ox + d.sw - d.ow * sc; }
+        } else if (h <= 5) {
+          // 上下边：仅纵向缩放
+          const ds = Math.abs(hy - d.oy) / d.sh;
+          nsy = clamp((sel.scaleY||1) + ds * (h === 4 ? -1 : 1), 0.02, 5);
+          if (h === 4) nt = d.oy + d.sh - d.oh * nsy;
+        } else {
+          // 左右边：仅横向缩放
+          const ds = Math.abs(hx - d.ox) / d.sw;
+          nsx = clamp((sel.scaleX||1) + ds * (h === 6 ? -1 : 1), 0.02, 5);
+          if (h === 6) nl = d.ox + d.sw - d.ow * nsx;
         }
-        const sx = Math.abs(nw) / Math.max(1, d.ow);
-        const sy = Math.abs(nh) / Math.max(1, d.oh);
-        // 等比缩放：取变化更大的那个方向
-        const sc = Math.max(sx, sy);
-        const fs = Math.max(0.02, Math.min(5, sc));
-        sel.left = Math.min(nl, d.ax);
-        sel.top = Math.min(nt, d.ay);
-        sel.scaleX = fs;
-        sel.scaleY = fs;
+
+        sel.scaleX = nsx; sel.scaleY = nsy; sel.left = nl; sel.top = nt;
         this.engine.dirty = true; this.engine.render();
       });
     } else {
@@ -227,8 +237,8 @@ Page({
     ctx.font = `${fs}px ${ff}`;
     const tw = ctx.measureText('文字').width;
     ctx.restore();
-    const w = Math.max(60, Math.ceil(tw + 16));
-    const h = Math.ceil(fs * 1.4 + 6);
+    const w = Math.max(40, Math.ceil(tw + 6));
+    const h = Math.ceil(fs * 1.25 + 2);
     this.engine.addText('文字', { fill:this.data.fontColor, fontSize:fs, fontFamily:ff, width:w, height:h });
     this._saveCurrentPage(); this._syncActive();
   },
