@@ -1,77 +1,82 @@
-<!-- 全屏编辑器 -->
-<view class="editor-root">
-  <canvas
-    type="2d"
-    id="ec"
-    class="editor-canvas"
-    bindtouchstart="onTS" bindtouchmove="onTM" bindtouchend="onTE" bindtap="onTap"
-  >
-    <cover-view class="cv-top">
-      <cover-view class="cv-row">
-        <cover-view class="cv-btn" bindtap="onBack">←</cover-view>
-        <cover-view class="cv-btn" bindtap="onAddText">T</cover-view>
-        <cover-view class="cv-btn" bindtap="onAddImg">+</cover-view>
-        <cover-view class="cv-btn" bindtap="onDel">×</cover-view>
-        <cover-view class="cv-btn" bindtap="onUndo">↩</cover-view>
-        <cover-view class="cv-label">{{pageInfo}}</cover-view>
-        <cover-view class="cv-btn" bindtap="onPrev">◀</cover-view>
-        <cover-view class="cv-btn" bindtap="onNext">▶</cover-view>
-        <cover-view class="cv-btn" bindtap="onGrid">{{gridOn ? '#' : '⊞'}}</cover-view>
-        <cover-view class="cv-btn" bindtap="onSave">✓</cover-view>
-      </cover-view>
-    </cover-view>
+<view class="page">
+  <!-- 顶部工具栏 -->
+  <view class="bar top-bar">
+    <button class="b" bindtap="onBack">←</button>
+    <button class="b" bindtap="onAddText">文字</button>
+    <button class="b" bindtap="onAddImg">图片</button>
+    <button class="b" bindtap="onDel">删除</button>
+    <button class="b" bindtap="onUndo">撤销</button>
+    <text class="info">{{pageInfo}}</text>
+    <button class="b" bindtap="onPrev">◀</button>
+    <button class="b" bindtap="onNext">▶</button>
+    <button class="b" bindtap="onGrid">{{gridOn ? '网格' : '⊞'}}</button>
+    <button class="b primary" bindtap="onSave">保存</button>
+  </view>
 
-    <cover-view class="cv-bottom" wx:if="{{activeObj}}">
-      <cover-view class="cv-row">
-        <cover-view class="cv-btn" bindtap="onFontDown">A-</cover-view>
-        <cover-view class="cv-btn" bindtap="onFontUp">A+</cover-view>
-        <cover-view class="cv-btn" bindtap="onFontPick">字体</cover-view>
-        <cover-view class="cv-btn" bindtap="onColorPick">色</cover-view>
-        <cover-view class="cv-btn" bindtap="onScaleDown">-</cover-view>
-        <cover-view class="cv-btn" bindtap="onScaleUp">+</cover-view>
-        <cover-view class="cv-btn" bindtap="onMoveUp">↑</cover-view>
-        <cover-view class="cv-btn" bindtap="onMoveDown">↓</cover-view>
-      </cover-view>
-      <cover-view class="cv-row">
-        <cover-view class="cv-btn" bindtap="onMoveLeft">←</cover-view>
-        <cover-view class="cv-btn" bindtap="onMoveRight">→</cover-view>
-        <cover-view class="cv-btn" bindtap="onBgPick">背景</cover-view>
-        <cover-view class="cv-btn" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</cover-view>
-      </cover-view>
-    </cover-view>
-  </canvas>
+  <!-- Canvas -->
+  <view class="canvas-area">
+    <canvas type="2d" id="ec" class="ec" disable-scroll="true"
+      bindtouchstart="onTS" bindtouchmove="onTM" bindtouchend="onTE" bindtap="onTap"
+    ></canvas>
+  </view>
 
-  <!-- 网格设置弹窗 -->
-  <cover-view class="cv-modal" wx:if="{{showGridModal}}">
-    <cover-view class="cv-card">
-      <cover-view class="cv-title">网格设置</cover-view>
-      <cover-view class="cv-field">
-        <cover-view class="cv-label">网格大小</cover-view>
-        <slider min="10" max="100" value="{{gridSize}}" bindchange="onGridSize" show-value />
-      </cover-view>
-      <cover-view class="cv-field">
-        <cover-view class="cv-label">网格颜色</cover-view>
-        <cover-view class="cv-swatch" style="background:{{gridColor}}" bindtap="onGridColor"></cover-view>
-      </cover-view>
-      <cover-view class="cv-btn" bindtap="onGridClose">关闭</cover-view>
-    </cover-view>
-  </cover-view>
+  <!-- 底部工具栏 (有选中对象时显示) -->
+  <view class="bar bottom-bar" wx:if="{{activeObj}}">
+    <button class="b" bindtap="onFontDown">A-</button>
+    <button class="b" bindtap="onFontUp">A+</button>
+    <button class="b" bindtap="onFontPick">字体</button>
+    <button class="b" bindtap="onColorPick">文字色</button>
+    <button class="b" bindtap="onBgPick">背景色</button>
+    <button class="b" bindtap="onScaleDown">-</button>
+    <button class="b" bindtap="onScaleUp">+</button>
+    <button class="b" bindtap="onMoveUp">↑</button>
+    <button class="b" bindtap="onMoveDown">↓</button>
+  </view>
+  <view class="bar bottom-bar" wx:if="{{activeObj}}">
+    <button class="b" bindtap="onMoveLeft">←</button>
+    <button class="b" bindtap="onMoveRight">→</button>
+    <button class="b" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</button>
+  </view>
 
-  <!-- 颜色选择 -->
-  <cover-view class="cv-modal" wx:if="{{showColor}}">
-    <cover-view class="cv-card">
-      <cover-view class="cv-title">选择颜色</cover-view>
-      <cover-view wx:for="{{palette}}" wx:key="*this" class="cv-swatch" style="background:{{item}}" bindtap="onPickColor" data-color="{{item}}"></cover-view>
-      <cover-view class="cv-btn" bindtap="onColorClose">关闭</cover-view>
-    </cover-view>
-  </cover-view>
+  <!-- 底部设置栏（始终显示） -->
+  <view class="bar bottom-bar">
+    <button class="b" bindtap="onGridSizeDown">网格-</button>
+    <text class="info">{{gridSize}}px</text>
+    <button class="b" bindtap="onGridSizeUp">网格+</button>
+    <button class="b" bindtap="onSnapOn">{{snapOn ? '吸附开' : '吸附关'}}</button>
+  </view>
+</view>
 
-  <!-- 字体选择 -->
-  <cover-view class="cv-modal" wx:if="{{showFonts}}">
-    <cover-view class="cv-card">
-      <cover-view class="cv-title">选择字体</cover-view>
-      <cover-view wx:for="{{fontList}}" wx:key="*this" class="cv-font-item" bindtap="onPickFont" data-font="{{item}}">{{item}}</cover-view>
-      <cover-view class="cv-btn" bindtap="onFontClose">关闭</cover-view>
-    </cover-view>
-  </cover-view>
+<!-- 字体弹窗 -->
+<view class="modal" wx:if="{{showFonts}}" catchtap="onFontClose">
+  <view class="modal-card" catchtap="">
+    <view class="modal-title">选择字体</view>
+    <view wx:for="{{fontList}}" wx:key="*this" class="modal-item" bindtap="onPickFont" data-font="{{item}}">{{item}}</view>
+  </view>
+</view>
+
+<!-- 颜色弹窗 -->
+<view class="modal" wx:if="{{showColor}}" catchtap="onColorClose">
+  <view class="modal-card" catchtap="">
+    <view class="modal-title">选择颜色</view>
+    <view class="swatches">
+      <view wx:for="{{palette}}" wx:key="*this" class="swatch" style="background:{{item}}" bindtap="onPickColor" data-color="{{item}}"></view>
+    </view>
+  </view>
+</view>
+
+<!-- 网格弹窗 -->
+<view class="modal" wx:if="{{showGridModal}}" catchtap="onGridClose">
+  <view class="modal-card" catchtap="">
+    <view class="modal-title">网格设置</view>
+    <view class="modal-row">
+      <button class="b" bindtap="onGridSizeDown">-</button>
+      <text>{{gridSize}}px</text>
+      <button class="b" bindtap="onGridSizeUp">+</button>
+    </view>
+    <view class="modal-title">网格颜色</view>
+    <view class="swatches">
+      <view wx:for="{{palette}}" wx:key="*this" class="swatch" style="background:{{item}}" bindtap="onPickGridColor" data-color="{{item}}"></view>
+    </view>
+  </view>
 </view>

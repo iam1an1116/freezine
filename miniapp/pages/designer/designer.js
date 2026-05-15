@@ -263,9 +263,11 @@ Page({
     this._newPage(this.cur+1); this._render();
   },
 
-  onGrid() { this.setData({showGridModal:!this.data.showGridModal}); },
-  onGridSize(e) { this.setData({gridSize:e.detail.value}); this._render(); },
-  onGridColor() { this.setData({showColor:true,_colorTarget:'grid'}); },
+  onGrid() { this.setData({gridOn:!this.data.gridOn}); this._render(); },
+  onGridSizeUp() { this.setData({gridSize:Math.min(100,this.data.gridSize+5)}); this._render(); },
+  onGridSizeDown() { this.setData({gridSize:Math.max(5,this.data.gridSize-5)}); this._render(); },
+  onGridColor() { this.setData({showGridModal:true}); },
+  onPickGridColor(e) { this.setData({gridColor:e.currentTarget.dataset.color,showGridModal:false}); this._render(); },
   onGridClose() { this.setData({showGridModal:false}); },
 
   onFontDown() { const o=this._ao();if(o&&o.type==='text'){o.fs=Math.max(8,o.fs-4);this._render();} },
