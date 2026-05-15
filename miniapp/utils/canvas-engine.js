@@ -304,13 +304,13 @@ class CanvasEngine {
       if (o.id === this.activeId) {
         const sw3 = (o.width || 40) * (o.scaleX || 1);
         const sh3 = (o.height || 40) * (o.scaleY || 1);
-        ctx.strokeStyle = '#4f46e5';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 2]);
-        ctx.strokeRect(ox - 2, oy - 2, sw3 + 4, sh3 + 4);
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(ox, oy, sw3, sh3);
         ctx.setLineDash([]);
-        // 8个手柄：4角 + 4边中点
-        const hs = 6, hw = 12; // 半尺寸、全尺寸
+        // 8个手柄：贴边
+        const hw = 10, hs = hw/2;
         const pts = [
           [ox-hs, oy-hs], [ox+sw3-hs, oy-hs], [ox-hs, oy+sh3-hs], [ox+sw3-hs, oy+sh3-hs],
           [ox+sw3/2-hs, oy-hs], [ox+sw3/2-hs, oy+sh3-hs],

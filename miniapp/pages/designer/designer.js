@@ -74,7 +74,7 @@ Page({
       const sel = this.engine.activeId ? this.engine.objects.find(o => o.id === this.engine.activeId) : null;
       if (sel) {
         const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
-        const hs = 10; // 手柄半径
+        const hs = 7; // 手柄检测半径
         const pts = [
           {x:ox, y:oy},           // 0:左上
           {x:ox+sw, y:oy},        // 1:右上
@@ -138,37 +138,43 @@ Page({
       const sel = this.engine.objects.find(o => o.id === this.engine.activeId);
       if (!sel) return;
       this._getRect(rect => {
-        const s = this.pageW / Math.max(1, rect.width);
-        const hx = this._dragData.ox + dx * s;
-        const hy = this._dragData.oy + dy * s;
+        const sc = this.pageW / Math.max(1, rect.width);
+        const h = this._dragData.handle;
         const d = this._dragData;
-        const h = d.handle;
 
-        let nsx = sel.scaleX, nsy = sel.scaleY, nl = sel.left, nt = sel.top;
-        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        // 手柄当前 canvas 坐标
+        const hx = d.ox + dx * sc;
+        const hy = d.oy + dy * sc;
+
+        // 锚点 = 拖拽开始时的对面位置
+        let ax = d.ox, ay = d.oy;
+        if (h === 0 || h === 2 || h === 6) ax = d.ox + d.sw; // 右
+        if (h === 1 || h === 3 || h === 7) ax = d.ox;         // 左
+        if (h === 0 || h === 1 || h === 4) ay = d.oy + d.sh;  // 下
+        if (h === 2 || h === 3 || h === 5) ay = d.oy;         // 上
+
+        // 边手柄：锁定一个轴
+        if (h === 4 || h === 5) hx = d.ox;   // 上下边：不改X
+        if (h === 6 || h === 7) hy = d.oy;   // 左右边：不改Y
+
+        // 新尺寸
+        const nw = Math.abs(hx - ax), nh = Math.abs(hy - ay);
+        const sx = nw / Math.max(1, d.ow);
+        const sy = nh / Math.max(1, d.oh);
 
         if (h <= 3) {
-          // 角：等比缩放
-          const ds = Math.max(Math.abs(hx - d.ox) / d.sw, Math.abs(hy - d.oy) / d.sh);
-          const dir = (h === 0 || h === 3) ? 1 : -1;
-          const sc = clamp((sel.scaleX||1) + ds * dir * (h <= 1 ? -1 : 1), 0.02, 5);
-          nsx = nsy = sc;
-          if (h === 0) { nl = d.ox + d.sw - d.ow * sc; nt = d.oy + d.sh - d.oh * sc; }
-          else if (h === 1) { nt = d.oy + d.sh - d.oh * sc; }
-          else if (h === 2) { nl = d.ox + d.sw - d.ow * sc; }
+          // 角：等比
+          const sc2 = Math.max(0.02, Math.min(5, Math.max(sx, sy)));
+          sel.scaleX = sel.scaleY = sc2;
         } else if (h <= 5) {
-          // 上下边：仅纵向缩放
-          const ds = Math.abs(hy - d.oy) / d.sh;
-          nsy = clamp((sel.scaleY||1) + ds * (h === 4 ? -1 : 1), 0.02, 5);
-          if (h === 4) nt = d.oy + d.sh - d.oh * nsy;
+          // 上下边：纵向
+          sel.scaleY = Math.max(0.02, Math.min(5, sy));
         } else {
-          // 左右边：仅横向缩放
-          const ds = Math.abs(hx - d.ox) / d.sw;
-          nsx = clamp((sel.scaleX||1) + ds * (h === 6 ? -1 : 1), 0.02, 5);
-          if (h === 6) nl = d.ox + d.sw - d.ow * nsx;
+          // 左右边：横向
+          sel.scaleX = Math.max(0.02, Math.min(5, sx));
         }
-
-        sel.scaleX = nsx; sel.scaleY = nsy; sel.left = nl; sel.top = nt;
+        sel.left = Math.min(hx, ax);
+        sel.top = Math.min(hy, ay);
         this.engine.dirty = true; this.engine.render();
       });
     } else {
@@ -237,8 +243,8 @@ Page({
     ctx.font = `${fs}px ${ff}`;
     const tw = ctx.measureText('文字').width;
     ctx.restore();
-    const w = Math.max(40, Math.ceil(tw + 6));
-    const h = Math.ceil(fs * 1.25 + 2);
+    const w = Math.max(60, Math.ceil(tw + 12));
+    const h = Math.ceil(fs * 1.3 + 8);
     this.engine.addText('文字', { fill:this.data.fontColor, fontSize:fs, fontFamily:ff, width:w, height:h });
     this._saveCurrentPage(); this._syncActive();
   },
