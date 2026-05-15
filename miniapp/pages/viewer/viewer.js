@@ -1,21 +1,17 @@
 const api = require('../../utils/api');
 const auth = require('../../utils/auth');
-const { CanvasEngine, normalizeFabricJSON } = require('../../utils/canvas-engine');
+const { normalizeFabricJSON } = require('../../utils/canvas-engine');
 
 Page({
   data: {
-    zineId: '',
-    title: '',
-    mode: 'seamless', // seamless | single
-    modeLabel: '单张阅览',
-    curPage: 0,
-    pageImages: [],
-    displayW: 0,
-    isAdmin: false,
-    status: ''
+    zineId: '', title: '', mode: 'seamless', modeLabel: '单张阅览',
+    curPage: 0, pageImages: [], displayW: 0, isAdmin: false, status: '',
+    renderW: 0, renderH: 0
   },
 
-  zineData: null,
+  _renderCanvas: null,
+  _renderCtx: null,
+  _pw: 0, _ph: 0,
 
   onLoad(opts) {
     const id = opts.id || '';
@@ -27,44 +23,67 @@ Page({
     this.setData({ status: '加载中…' });
     try {
       const z = await api.getZine(id);
-      this.zineData = z;
       const sys = wx.getSystemInfoSync();
       const displayW = Math.round(sys.windowWidth - 32);
+      const pw = z.pageWidthPx || 400;
+      const ph = z.pageHeightPx || 400;
 
-      this.setData({ title: z.title, displayW, status: '渲染页面…' });
+      this._pw = pw; this._ph = ph;
+      this.setData({ title: z.title, displayW, status: '渲染页面…', renderW: pw, renderH: ph });
+
+      // 初始化隐藏 canvas
+      await this._initRenderCanvas();
 
       // 渲染每一页
-      const pw = z.pageWidthPx || 720;
-      const ph = z.pageHeightPx || 720;
-      const images = [];
       const pageStates = z.pageStates || [];
-
-      // 创建离屏 canvas 渲染每一页
+      const images = [];
       for (let i = 0; i < pageStates.length; i++) {
-        const src = await this._renderPage(pw, ph, pageStates[i]);
+        const src = await this._renderPage(pageStates[i]);
         images.push(src);
       }
 
       this.setData({ pageImages: images, status: '' });
     } catch (e) {
-      console.error(e);
+      console.error('viewer load error', e);
       this.setData({ status: '加载失败' });
     }
   },
 
-  _renderPage(pw, ph, json) {
+  _initRenderCanvas() {
     return new Promise(resolve => {
-      const canvas = wx.createOffscreenCanvas({
-        type: '2d', width: pw * 2, height: ph * 2
+      const query = wx.createSelectorQuery();
+      query.select('#renderCanvas').fields({ node: true, size: true }).exec(res => {
+        if (!res || !res[0] || !res[0].node) {
+          setTimeout(() => this._initRenderCanvas().then(resolve), 200);
+          return;
+        }
+        const canvas = res[0].node;
+        const dpr = wx.getSystemInfoSync().pixelRatio || 2;
+        canvas.width = this._pw * dpr;
+        canvas.height = this._ph * dpr;
+        this._renderCanvas = canvas;
+        this._renderCtx = canvas.getContext('2d');
+        resolve();
       });
-      const ctx = canvas.getContext('2d');
-      ctx.scale(2, 2);
+    });
+  },
+
+  _renderPage(json) {
+    return new Promise(resolve => {
+      const canvas = this._renderCanvas;
+      const ctx = this._renderCtx;
+      if (!canvas || !ctx) return resolve('');
+
+      const dpr = wx.getSystemInfoSync().pixelRatio || 2;
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, this._pw, this._ph);
 
       const n = normalizeFabricJSON(json);
       ctx.fillStyle = n.background || '#ffffff';
-      ctx.fillRect(0, 0, pw, ph);
+      ctx.fillRect(0, 0, this._pw, this._ph);
 
-      // 先画文字，收集图片
+      // 收集图片加载任务
       const imgTasks = [];
       for (const obj of n.objects) {
         ctx.save();
@@ -76,10 +95,11 @@ Page({
           ctx.textBaseline = 'top';
           const maxW = (obj.width || 360) * (obj.scaleX || 1);
           const lines = this._wrap(ctx, obj.text || '', maxW);
+          const lineH = fs * 1.4;
           for (let j = 0; j < lines.length; j++) {
             const lx = obj.textAlign === 'center' ? obj.left + maxW / 2 :
                        obj.textAlign === 'right' ? obj.left + maxW : obj.left;
-            ctx.fillText(lines[j], lx, obj.top + j * fs * 1.4);
+            ctx.fillText(lines[j], lx, obj.top + j * lineH);
           }
         } else if (obj.type === 'image' && obj.src) {
           imgTasks.push(new Promise(done => {
@@ -99,20 +119,17 @@ Page({
         ctx.restore();
       }
 
-      // 等所有图片加载后再导出
-      const finalize = () => {
+      const finish = () => {
+        ctx.restore();
         wx.canvasToTempFilePath({
           canvas,
-          success: res => resolve(res.tempFilePath),
+          success: r => resolve(r.tempFilePath),
           fail: () => resolve('')
         });
       };
 
-      if (imgTasks.length === 0) {
-        finalize();
-      } else {
-        Promise.all(imgTasks).then(finalize);
-      }
+      if (imgTasks.length) Promise.all(imgTasks).then(finish);
+      else finish();
     });
   },
 
@@ -122,12 +139,9 @@ Page({
     for (const para of text.split('\n')) {
       let line = '';
       for (const ch of para) {
-        if (ctx.measureText(line + ch).width > maxW && line.length > 0) {
-          lines.push(line);
-          line = ch;
-        } else {
-          line += ch;
-        }
+        if (ctx.measureText(line + ch).width > maxW && line.length) {
+          lines.push(line); line = ch;
+        } else line += ch;
       }
       lines.push(line);
     }
@@ -135,43 +149,22 @@ Page({
   },
 
   onToggleMode() {
-    const next = this.data.mode === 'seamless' ? 'single' : 'seamless';
-    this.setData({
-      mode: next,
-      modeLabel: next === 'seamless' ? '单张阅览' : '无缝阅览',
-      curPage: 0
-    });
+    const n = this.data.mode === 'seamless' ? 'single' : 'seamless';
+    this.setData({ mode: n, modeLabel: n === 'seamless' ? '单张阅览' : '无缝阅览', curPage: 0 });
   },
-
-  onPrevPage() {
-    const idx = this.data.curPage - 1;
-    if (idx < 0) return;
-    this.setData({ curPage: idx });
-  },
-
-  onNextPage() {
-    const idx = this.data.curPage + 1;
-    if (idx >= this.data.pageImages.length) return;
-    this.setData({ curPage: idx });
-  },
+  onPrevPage() { if (this.data.curPage > 0) this.setData({ curPage: this.data.curPage - 1 }); },
+  onNextPage() { if (this.data.curPage < this.data.pageImages.length - 1) this.setData({ curPage: this.data.curPage + 1 }); },
 
   onDelete() {
     wx.showModal({
-      title: '删除电子书',
-      content: '确定删除？此操作不可撤销。',
+      title: '删除电子书', content: '确定删除？此操作不可撤销。',
       success: async res => {
         if (!res.confirm) return;
-        try {
-          await api.deleteZine(this.data.zineId);
-          wx.navigateBack();
-        } catch (e) {
-          wx.showToast({ title: '删除失败', icon: 'none' });
-        }
+        try { await api.deleteZine(this.data.zineId); wx.navigateBack(); }
+        catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); }
       }
     });
   },
 
-  onClose() {
-    wx.navigateBack();
-  }
+  onClose() { wx.navigateBack(); }
 });

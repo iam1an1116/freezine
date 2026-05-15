@@ -49,4 +49,7 @@
       <button class="circle-btn small" bindtap="onNextPage" disabled="{{curPage >= pageImages.length - 1}}">下一页</button>
     </view>
   </view>
+
+  <!-- 隐藏 canvas 用于渲染页面（离屏 canvas 不支持 canvasToTempFilePath） -->
+  <canvas type="2d" id="renderCanvas" class="render-canvas" style="width: {{renderW}}px; height: {{renderH}}px;"></canvas>
 </view>

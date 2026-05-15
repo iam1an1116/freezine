@@ -53,6 +53,12 @@
   justify-content: center;
   gap: 20rpx;
 }
+.render-canvas {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+}
+
 .viewer-single-nav {
   display: flex;
   align-items: center;
