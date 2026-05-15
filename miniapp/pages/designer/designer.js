@@ -77,13 +77,10 @@ Page({
     return new Promise(resolve => {
       const query = wx.createSelectorQuery();
       query.select('#zineCanvas')
-        .fields({ node: true, size: true })
+        .fields({ node: true, size: true, rect: true })
         .exec(res => {
-          if (!res || !res[0]) {
-            // retry
-            setTimeout(() => {
-              this._initCanvas().then(resolve);
-            }, 200);
+          if (!res || !res[0] || !res[0].node) {
+            setTimeout(() => { this._initCanvas().then(resolve); }, 200);
             return;
           }
           const canvas = res[0].node;
@@ -91,6 +88,14 @@ Page({
           const dpr = sys.pixelRatio || 2;
           canvas.width = w * dpr;
           canvas.height = h * dpr;
+
+          // 缓存 canvas 在屏幕上的实际位置（用于触摸坐标转换）
+          this._canvasRect = {
+            left: res[0].left || 0,
+            top: res[0].top || 0,
+            width: res[0].width || displayW,
+            height: res[0].height || displayH
+          };
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
           this._touchData = { lastX: 0, lastY: 0, dragging: false };
@@ -136,18 +141,13 @@ Page({
   },
 
   _getCanvasRect() {
-    const query = wx.createSelectorQuery();
-    // 同步获取不可行，用固定值估算
+    // 使用初始化时缓存的真实位置
+    if (this._canvasRect) return this._canvasRect;
+    // 回退：估算值
     const sys = wx.getSystemInfoSync();
-    const maxDisplayW = sys.windowWidth - 32;
-    const maxDisplayH = sys.windowHeight - 380;
-    const scale = Math.min(maxDisplayW / this.pageW, maxDisplayH / this.pageH);
-    const displayW = Math.round(this.pageW * scale);
-    const displayH = Math.round(this.pageH * scale);
-    const left = (sys.windowWidth - displayW) / 2;
-    // approximate top offset (topbar + nav + toolbar ~ 200rpx = 100px)
-    const top = 200 * sys.pixelRatio / 2;
-    return { left, top, width: displayW, height: displayH };
+    const w = Math.round(this.pageW * Math.min((sys.windowWidth - 32) / this.pageW, (sys.windowHeight - 380) / this.pageH));
+    const h = Math.round(this.pageH * Math.min((sys.windowWidth - 32) / this.pageW, (sys.windowHeight - 380) / this.pageH));
+    return { left: (sys.windowWidth - w) / 2, top: 100, width: w, height: h };
   },
 
   _syncActive() {
