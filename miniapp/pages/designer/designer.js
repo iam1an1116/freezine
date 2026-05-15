@@ -188,22 +188,25 @@ Page({
       this._getRect(rect => {
         const s = this.pageW / Math.max(1, rect.width);
         this.engine.moveActive(dx*s, dy*s);
-        // 吸附网格
-        if (this.data.snapOn) {
-          const gs = this.data.gridSize || 20;
-          const obj = this.engine.getActive();
-          if (obj) {
-            obj.left = Math.round(obj.left / gs) * gs;
-            obj.top = Math.round(obj.top / gs) * gs;
-          }
-        }
       });
       this._dragData.lx = t.x; this._dragData.ly = t.y;
     }
     this._saveCurrentPage();
   },
 
-  _onTE() { this._dragData = null; },
+  _onTE() {
+    // 松手时吸附网格
+    if (this.data.snapOn && this.engine) {
+      const gs = this.data.gridSize || 20;
+      const obj = this.engine.getActive();
+      if (obj) {
+        obj.left = Math.round(obj.left / gs) * gs;
+        obj.top = Math.round(obj.top / gs) * gs;
+        this.engine.dirty = true; this.engine.render(); this._saveCurrentPage();
+      }
+    }
+    this._dragData = null;
+  },
 
   // WXML catch 事件入口
   onTS(e) { wx.showToast({title:'T',icon:'none',duration:300}); this._onTS(e); },
