@@ -91,57 +91,77 @@ Page({
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
           this._touchData = { lastX: 0, lastY: 0, dragging: false };
+
+          // 等布局完成获取 canvas 实际位置
+          setTimeout(() => {
+            wx.createSelectorQuery().select('#zineCanvas')
+              .boundingClientRect().exec(r => {
+                if (r && r[0] && r[0].width > 0) this._canvasRect = r[0];
+              });
+          }, 400);
+
           resolve();
         });
     });
   },
 
   // ---------- Touch ----------
-  // tap 选择：e.detail.x/y 是相对 canvas 元素的坐标，无需求绝对位置
-  onCanvasTap(e) {
-    if (!this.engine) return;
-    const sx = this.pageW / Math.max(1, this.data.canvasStyleW || 300);
-    const sy = this.pageH / Math.max(1, this.data.canvasStyleH || 300);
-    const x = (e.detail.x || 0) * sx;
-    const y = (e.detail.y || 0) * sy;
-
-    const hitId = this.engine.hitTest(x, y);
-    if (hitId) {
-      this.engine.setActive(hitId);
-    } else {
-      this.engine.setActive(null);
-    }
-    this._syncActive();
-  },
-
-  // 拖拽：仅用屏幕坐标的增量，无需绝对位置
+  // touchstart：命中检测 + 拖拽起点。用屏幕坐标减 canvas 实际位置
   onTouchStart(e) {
     if (!this.engine) return;
     const t = e.touches[0];
-    this._touchData = { lastX: t.x, lastY: t.y, dragging: false, startX: t.x, startY: t.y };
+    this._touchData = { sx: t.x, sy: t.y, lx: t.x, ly: t.y, dragging: false };
+
+    if (this._canvasRect) {
+      const sx = this.pageW / this._canvasRect.width;
+      const sy = this.pageH / this._canvasRect.height;
+      const x = (t.x - this._canvasRect.left) * sx;
+      const y = (t.y - this._canvasRect.top) * sy;
+      const hitId = this.engine.hitTest(x, y);
+      if (hitId) {
+        this.engine.setActive(hitId);
+        this._touchData.hitOnStart = true;
+      } else {
+        this.engine.setActive(null);
+        this._touchData.hitOnStart = false;
+      }
+      this._syncActive();
+    }
   },
 
   onTouchMove(e) {
     if (!this._touchData || !this.engine) return;
     const t = e.touches[0];
-    const dx = t.x - this._touchData.lastX;
-    const dy = t.y - this._touchData.lastY;
-    // 移动超过阈值才开始拖拽
-    if (!this._touchData.dragging && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+    const dx = t.x - this._touchData.lx;
+    const dy = t.y - this._touchData.ly;
+    if (!this._touchData.dragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
       this._touchData.dragging = true;
     }
     if (!this._touchData.dragging) return;
-
-    const sx = this.pageW / Math.max(1, this.data.canvasStyleW || 300);
-    const sy = this.pageH / Math.max(1, this.data.canvasStyleH || 300);
-    this.engine.moveActive(dx * sx, dy * sy);
-    this._touchData.lastX = t.x;
-    this._touchData.lastY = t.y;
+    // 用 tap 坐标缩放：detail.x 是相对元素的，比 screen coords 更可靠
+    const s = this.pageW / Math.max(1, this.data.canvasStyleW || 300);
+    this.engine.moveActive(dx * s, dy * s);
+    this._touchData.lx = t.x; this._touchData.ly = t.y;
     this._saveCurrentPage();
   },
 
   onTouchEnd() {
     if (this._touchData) this._touchData.dragging = false;
+  },
+
+  // tap 回退：如果 touchstart 没拿到 rect，用 tap 的 element-relative 坐标
+  onCanvasTap(e) {
+    if (!this.engine) return;
+    // touchstart 已经处理过了，这里只做回退
+    if (this._touchData && this._touchData.hitOnStart !== undefined) return;
+    // 回退：用 detail.x/y
+    const sx = this.pageW / Math.max(1, this.data.canvasStyleW || 300);
+    const sy = this.pageH / Math.max(1, this.data.canvasStyleH || 300);
+    const x = (e.detail.x || 0) * sx;
+    const y = (e.detail.y || 0) * sy;
+    const hitId = this.engine.hitTest(x, y);
+    this.engine.setActive(hitId || null);
+    this._syncActive();
   },
 
   _syncActive() {

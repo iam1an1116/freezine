@@ -208,10 +208,16 @@ class CanvasEngine {
     this.render();
   }
 
-  scaleActive(delta) {
+  scaleActive(dir) {
     const obj = this.getActive();
     if (!obj) return;
-    obj.scaleX = Math.max(0.1, Math.min(4, (obj.scaleX || 1) + delta));
+    // 乘性缩放，每次 ±15%
+    const factor = dir > 0 ? 1.15 : 0.85;
+    const s = (obj.scaleX || 1) * factor;
+    // 限制：最小 20px，最大 3× 画布
+    const minS = 20 / Math.max(1, obj.width || 100);
+    const maxS = (this.w * 3) / Math.max(1, obj.width || 100);
+    obj.scaleX = Math.max(minS, Math.min(maxS, s));
     obj.scaleY = obj.scaleX;
     this.dirty = true;
     this.render();
