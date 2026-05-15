@@ -91,12 +91,16 @@ Page({
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
 
-          // canvas 节点原生事件（坐标是 canvas 相对坐标）
+          // canvas 节点原生事件
           canvas.addEventListener('touchstart', this._onTS.bind(this));
           canvas.addEventListener('touchmove',  this._onTM.bind(this));
           canvas.addEventListener('touchend',   this._onTE.bind(this));
-          this._scaleX = this.pageW / Math.max(1, displayW);
-          this._scaleY = this.pageH / Math.max(1, displayH);
+
+          // 缓存 canvas 实际渲染尺寸（用于坐标转换）
+          wx.createSelectorQuery().select('#zineCanvas')
+            .boundingClientRect().exec(r => {
+              if (r && r[0] && r[0].width > 0) this._cr = r[0];
+            });
 
           resolve();
         });
@@ -108,8 +112,10 @@ Page({
     if (!this.engine) return;
     const t = e.touches ? e.touches[0] : null;
     if (!t) return;
-    const cx = t.x * this._scaleX;
-    const cy = t.y * this._scaleY;
+    const w = this._cr ? this._cr.width : (this.data.canvasStyleW || 300);
+    const h = this._cr ? this._cr.height : (this.data.canvasStyleH || 300);
+    const cx = t.x * (this.pageW / Math.max(1, w));
+    const cy = t.y * (this.pageH / Math.max(1, h));
     const hitId = this.engine.hitTest(cx, cy);
 
     // 双击检测（用于编辑文字）
@@ -144,7 +150,9 @@ Page({
     const dx = t.x - this._dragData.lx;
     const dy = t.y - this._dragData.ly;
     if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
-    this.engine.moveActive(dx * this._scaleX, dy * this._scaleY);
+    const w = this._cr ? this._cr.width : (this.data.canvasStyleW || 300);
+    const h = this._cr ? this._cr.height : (this.data.canvasStyleH || 300);
+    this.engine.moveActive(dx * (this.pageW / Math.max(1, w)), dy * (this.pageH / Math.max(1, h)));
     this._dragData.lx = t.x;
     this._dragData.ly = t.y;
     this._saveCurrentPage();
@@ -168,11 +176,6 @@ Page({
       }
     });
   },
-
-  // WXML catch 回退
-  onTouchStart(e) { this._onTS(e); },
-  onTouchMove(e) { this._onTM(e); },
-  onTouchEnd(e) { this._onTE(e); },
 
   _syncActive() {
     const obj = this.engine ? this.engine.getActive() : null;
