@@ -44,10 +44,10 @@
 
     <!-- 工具栏 -->
     <view class="toolbar">
-      <button style="padding:6rpx 14rpx;font-size:22rpx;margin:0;line-height:1;border-radius:20rpx;" bindtap="onAddText">文字</button>
-      <button style="padding:6rpx 14rpx;font-size:22rpx;margin:0;line-height:1;border-radius:20rpx;" bindtap="onAddImage">图片</button>
-      <button style="padding:6rpx 14rpx;font-size:22rpx;margin:0;line-height:1;border-radius:20rpx;" bindtap="onDelActive">删除</button>
-      <button style="padding:6rpx 14rpx;font-size:22rpx;margin:0;line-height:1;border-radius:20rpx;color:#ef4444;" bindtap="onClearPage">清空</button>
+      <view class="tb" bindtap="onAddText">文字</view>
+      <view class="tb" bindtap="onAddImage">图片</view>
+      <view class="tb" bindtap="onDelActive">删除</view>
+      <view class="tb tb-red" bindtap="onClearPage">清空</view>
     </view>
 
     <view class="canvas-wrap">
