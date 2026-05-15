@@ -21,6 +21,9 @@ Page({
   _animId: 0,
   _loading: false,
 
+  // Button hit areas (set in render)
+  _btns: {},
+
   onLoad() {
     this.setData({ admin: auth.isAdmin() });
     this._initCanvas();
@@ -59,32 +62,29 @@ Page({
     try {
       const res = await api.listZines();
       this._buildBodies((res && res.items) || []);
-      const n = this._bodies.length;
-      this.setData({ status: n > 0 ? `${n} 个图标` : '暂无作品' });
-      setTimeout(() => this.setData({ status: '' }), 2500);
     } catch (e) {
-      this.setData({ status: '加载失败：' + (e.message || '网络错误') });
+      this.setData({ status: '加载失败' });
     } finally {
       this._loading = false;
     }
   },
 
-  async _search(query) {
-    if (!query.trim()) return;
+  async _search(q) {
     this.setData({ status: '搜索中…' });
     try {
-      const res = await api.searchZines(query.trim());
-      this._buildBodies((res && res.items) || []);
+      const res = await api.searchZines(q.trim());
+      this._buildBodies((res && res.items) || [], true);
       const n = this._bodies.length;
-      this.setData({ status: n > 0 ? `找到 ${n} 个` : `无匹配 "${query}"` });
+      this.setData({ status: n > 0 ? `找到 ${n} 个` : `无匹配 "${q}"` });
     } catch (e) {
       this.setData({ status: '搜索失败' });
     }
   },
 
-  _buildBodies(items) {
+  _buildBodies(items, isSearch) {
     this._bodies = [];
-    const list = items.slice(0, MAX_BODIES);
+    const limit = isSearch ? 36 : MAX_BODIES;
+    const list = items.slice(0, limit);
     for (let i = 0; i < list.length; i++) {
       const z = list[i];
       const ar = z.aspect ? (z.aspect.w / Math.max(1, z.aspect.h)) : 1;
@@ -109,7 +109,6 @@ Page({
       };
       this._bodies.push(body);
 
-      // 异步加载图片
       if (isHTTP && this._canvas) {
         const img = this._canvas.createImage();
         img.onload = () => { body.imgLoaded = true; body.img = img; };
@@ -119,7 +118,7 @@ Page({
     }
   },
 
-  // ---------- Physics Loop ----------
+  // ---------- Physics ----------
   _startLoop() {
     if (this._animId || !this._canvas) return;
     const loop = () => {
@@ -140,20 +139,17 @@ Page({
   _step() {
     const bodies = this._bodies;
     const w = this._w, h = this._h;
-
-    // 排斥区域
     const repellers = [
-      { x: w / 2, y: h / 2, r: 100 },
-      { x: 20, y: h - 20, r: 45 }
+      { x: w / 2, y: h / 2, r: 110 },
+      { x: 24, y: h - 24, r: 50 },
+      { x: w - 56, y: 44, r: 110 }   // top-right tools
     ];
 
     for (let i = 0; i < bodies.length; i++) {
       const a = bodies[i];
-      const ax = a.x + a.w / 2;
-      const ay = a.y + a.h / 2;
-
-      a.vx += (Math.random() - 0.5) * 0.03;
-      a.vy += (Math.random() - 0.5) * 0.03;
+      const ax = a.x + a.w / 2, ay = a.y + a.h / 2;
+      a.vx += (Math.random() - 0.5) * 0.025;
+      a.vy += (Math.random() - 0.5) * 0.025;
       a.vx *= 0.996;
       a.vy *= 0.996;
 
@@ -172,9 +168,9 @@ Page({
         const bx = b.x + b.w / 2, by = b.y + b.h / 2;
         const dx = ax - bx, dy = ay - by;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const minDist = (a.w + b.w) / 2;
-        if (dist < minDist) {
-          const f = (minDist - dist) / minDist * 0.3;
+        const minD = (a.w + b.w) / 2;
+        if (dist < minD) {
+          const f = (minD - dist) / minD * 0.25;
           a.vx += (dx / dist) * f;
           a.vy += (dy / dist) * f;
           b.vx -= (dx / dist) * f;
@@ -182,60 +178,51 @@ Page({
         }
       }
 
-      // 边界
       if (a.x < 4) { a.x = 4; a.vx = Math.abs(a.vx) * 0.5; }
       if (a.y < 4) { a.y = 4; a.vy = Math.abs(a.vy) * 0.5; }
-      if (a.x + a.w > w - 4) { a.x = w - 4 - a.w; a.vx = -Math.abs(a.vx) * 0.5; }
-      if (a.y + a.h > h - 4) { a.y = h - 4 - a.h; a.vy = -Math.abs(a.vy) * 0.5; }
+      if (a.x + a.w > w - 4) { a.x = w - 4 - a.w; a.vx = Math.abs(a.vx) * -0.5; }
+      if (a.y + a.h > h - 4) { a.y = h - 4 - a.h; a.vy = Math.abs(a.vy) * -0.5; }
 
       const spd = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
-      if (spd > 1.2) { a.vx *= 1.2 / spd; a.vy *= 1.2 / spd; }
+      if (spd > 1) { a.vx *= 1 / spd; a.vy *= 1 / spd; }
 
       a.x += a.vx;
       a.y += a.vy;
     }
   },
 
+  // ---------- Render ----------
   _render() {
     if (!this._ctx) return;
     const ctx = this._ctx;
     const dpr = this._dpr;
+    const w = this._w, h = this._h;
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
 
-    // 淡灰背景
+    // bg
     ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(0, 0, this._w, this._h);
+    ctx.fillRect(0, 0, w, h);
 
+    // icons
     for (const b of this._bodies) {
       const bx = b.x, by = b.y;
-      const bw = b.w, imgH = b.h - 20;
-      const r = 10;
-
-      // 阴影
-      ctx.shadowColor = 'rgba(0,0,0,.12)';
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetX = 0;
+      const bw = b.w, imgH = b.h - 20, r = 10;
+      ctx.shadowColor = 'rgba(0,0,0,.10)';
+      ctx.shadowBlur = 6;
       ctx.shadowOffsetY = 2;
-
-      // 白色卡片
       ctx.fillStyle = '#ffffff';
       this._roundR(ctx, bx, by, bw, imgH, r);
       ctx.fill();
-
-      // 重置阴影
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
-
-      // 可见边框
-      ctx.strokeStyle = 'rgba(0,0,0,.12)';
+      ctx.strokeStyle = 'rgba(0,0,0,.10)';
       ctx.lineWidth = 0.5;
       this._roundR(ctx, bx, by, bw, imgH, r);
       ctx.stroke();
 
-      // 图片 / 占位
       if (b.imgLoaded && b.img) {
         ctx.save();
         this._roundPath(ctx, bx, by, bw, imgH, r);
@@ -247,25 +234,79 @@ Page({
         this._roundR(ctx, bx + 2, by + 2, bw - 4, imgH - 4, r - 2);
         ctx.fill();
         ctx.fillStyle = 'rgba(79,70,229,.45)';
-        ctx.font = `700 ${Math.min(bw * 0.24, 22)}px sans-serif`;
+        ctx.font = `700 ${Math.min(bw * 0.24, 20)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(b.title.slice(0, 3), bx + bw / 2, by + imgH / 2);
-        ctx.textAlign = 'start';
-        ctx.textBaseline = 'alphabetic';
       }
 
-      // 标题文字
       ctx.fillStyle = '#111827';
       ctx.font = '600 10px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      const titleText = this._clip(ctx, b.title, bw - 4);
-      ctx.fillText(titleText, bx + bw / 2, by + imgH + 3);
+      ctx.fillText(this._clip(ctx, b.title, bw - 4), bx + bw / 2, by + imgH + 3);
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
     }
+
+    // ---- Canvas-drawn buttons ----
+    this._btns = {};
+
+    // 中央「制作」按钮
+    if (!this.data.showSearch) {
+      const cx = w / 2, cy = h / 2;
+      const bw = 200, bh = 48;
+      this._drawBtn(ctx, cx - bw / 2, cy - bh / 2, bw, bh, '#111827', '现在，设计你的ZINE', '#fff');
+      this._btns.enter = { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh, action: 'enter' };
+    } else {
+      // 返回按钮
+      const bx = w / 2, by = h / 2 + 30;
+      const bw = 160, bh = 48;
+      this._drawBtn(ctx, bx - bw / 2, by - bh / 2, bw, bh, '#111827', '← 返回主页', '#fff');
+      this._btns.back = { x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, action: 'back' };
+    }
+
+    // 右上角 刷新 + 搜索
+    const trx = w - 16, try_ = 16;
+    this._drawBtn(ctx, trx - 64, try_, 60, 36, '#fff', '↻', '#111827');
+    this._btns.refresh = { x: trx - 64, y: try_, w: 60, h: 36, action: 'refresh' };
+    this._drawBtn(ctx, trx - 136, try_, 60, 36, '#fff', '🔍', '#111827');
+    this._btns.search = { x: trx - 136, y: try_, w: 60, h: 36, action: 'search' };
+
+    // 左下角管理员
+    const lx = 14, ly = h - 28;
+    ctx.fillStyle = this.data.admin ? 'rgba(15,23,42,.85)' : 'rgba(15,23,42,.18)';
+    ctx.beginPath();
+    ctx.arc(lx, ly, 10, 0, Math.PI * 2);
+    ctx.fill();
+    this._btns.login = { x: lx - 14, y: ly - 14, w: 28, h: 28, action: 'login' };
+
     ctx.restore();
+  },
+
+  _drawBtn(ctx, x, y, w, h, bg, text, color) {
+    ctx.shadowColor = 'rgba(0,0,0,.08)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = bg;
+    this._roundR(ctx, x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    if (bg === '#fff') {
+      ctx.strokeStyle = 'rgba(0,0,0,.10)';
+      ctx.lineWidth = 0.5;
+      this._roundR(ctx, x, y, w, h, h / 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = color;
+    ctx.font = `600 ${bg === '#fff' ? 13 : 16}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + w / 2, y + h / 2);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
   },
 
   _roundR(ctx, x, y, w, h, r) { this._roundPath(ctx, x, y, w, h, r); ctx.fill(); },
@@ -291,6 +332,19 @@ Page({
   // ---------- Tap ----------
   onCanvasTap(e) {
     const x = e.detail.x, y = e.detail.y;
+    // 先检测按钮
+    for (const key of Object.keys(this._btns)) {
+      const b = this._btns[key];
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+        if (b.action === 'enter') this.onEnter();
+        else if (b.action === 'back') this.onSearchCancel();
+        else if (b.action === 'refresh') this.onRefresh();
+        else if (b.action === 'search') this.onSearchTap();
+        else if (b.action === 'login') this.onLoginTap();
+        return;
+      }
+    }
+    // 再检测图标
     for (const b of this._bodies) {
       if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
         wx.navigateTo({ url: '/pages/book/book?zine=' + encodeURIComponent(b.id) });
@@ -299,47 +353,25 @@ Page({
     }
   },
 
-  // ---------- Events ----------
-  onEnter() {
-    wx.navigateTo({ url: '/pages/designer/designer' });
-  },
-
+  onEnter() { wx.navigateTo({ url: '/pages/designer/designer' }); },
   onRefresh() {
     this._bodies = [];
-    if (this._ctx) {
-      this._ctx.clearRect(0, 0, this._w, this._h);
-    }
     this._load();
   },
-
-  onSearchTap() {
-    this.setData({ showSearch: true, searchQuery: '' });
-  },
-
-  onSearchInput(e) {
-    this.setData({ searchQuery: e.detail.value });
-  },
-
+  onSearchTap() { this.setData({ showSearch: true, searchQuery: '' }); },
+  onSearchInput(e) { this.setData({ searchQuery: e.detail.value }); },
   onSearchConfirm() {
     const q = this.data.searchQuery.trim();
     if (q) this._search(q);
   },
-
   onSearchCancel() {
     this.setData({ showSearch: false, searchQuery: '' });
-    // 恢复默认图标
     this._load();
   },
-
-  onLoginTap() {
-    this.setData({ showLogin: true, loginUser: '', loginPass: '' });
-  },
-  onCancelLogin() {
-    this.setData({ showLogin: false });
-  },
+  onLoginTap() { this.setData({ showLogin: true, loginUser: '', loginPass: '' }); },
+  onCancelLogin() { this.setData({ showLogin: false }); },
   onUserInput(e) { this.setData({ loginUser: e.detail.value }); },
   onPassInput(e) { this.setData({ loginPass: e.detail.value }); },
-
   onLoginSubmit() {
     if (auth.login(this.data.loginUser, this.data.loginPass)) {
       this.setData({ showLogin: false, admin: true, status: '管理员登录成功' });
@@ -349,9 +381,7 @@ Page({
       setTimeout(() => this.setData({ status: '' }), 2000);
     }
   },
-
   stopProp() {},
-
   onPullDownRefresh() {
     this._load().then(() => wx.stopPullDownRefresh());
   }

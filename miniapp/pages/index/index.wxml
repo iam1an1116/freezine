@@ -1,5 +1,4 @@
 <view class="home-view">
-  <!-- Canvas 物理引擎 -->
   <canvas
     type="2d"
     id="physicsCanvas"
@@ -7,45 +6,22 @@
     bindtap="onCanvasTap"
   ></canvas>
 
-  <!-- 搜索栏 -->
-  <view class="search-bar {{showSearch ? '' : 'hidden'}}">
-    <view class="search-row">
+  <!-- 搜索栏（在 canvas 上方，canvas 内绘制搜索输入框受限，所以单独放） -->
+  <cover-view class="search-bar {{showSearch ? '' : 'hidden'}}">
+    <cover-view class="search-row">
       <input
         class="search-input"
         value="{{searchQuery}}"
         bindinput="onSearchInput"
         bindconfirm="onSearchConfirm"
-        placeholder="搜索 ZINE 名称…"
+        placeholder="搜索 ZINE…"
         focus="{{showSearch}}"
       />
-      <button class="circle-btn small" bindtap="onSearchCancel">取消</button>
-    </view>
-  </view>
+      <cover-view class="circle-btn small search-cancel" bindtap="onSearchCancel">取消</cover-view>
+    </cover-view>
+  </cover-view>
 
-  <!-- 中央制作按钮（搜索时隐藏） -->
-  <button
-    wx:if="{{!showSearch}}"
-    class="circle-btn primary home-enter-btn"
-    bindtap="onEnter"
-  >现在，设计你的ZINE</button>
-
-  <!-- 搜索时显示返回键 -->
-  <button
-    wx:if="{{showSearch}}"
-    class="circle-btn primary home-back-btn"
-    bindtap="onSearchCancel"
-  >← 返回主页</button>
-
-  <!-- 右上角工具栏 -->
-  <view class="top-tools {{showSearch ? 'hidden' : ''}}">
-    <button class="circle-btn small" bindtap="onRefresh">↻ 刷新</button>
-    <button class="circle-btn small" bindtap="onSearchTap">🔍 搜索</button>
-  </view>
-
-  <!-- 左下角管理员 -->
-  <view class="login-entry {{admin ? 'authed' : ''}}" bindtap="onLoginTap"></view>
-
-  <!-- 登录弹窗 -->
+  <!-- 登录弹窗（全屏遮罩，canvas 在下面不影响） -->
   <view class="login-modal {{showLogin ? '' : 'hidden'}}" catchtap="onCancelLogin">
     <view class="login-card" catchtap="stopProp">
       <view class="login-title">管理员登录</view>
@@ -64,5 +40,5 @@
     </view>
   </view>
 
-  <view class="status-bar" wx:if="{{status}}">{{status}}</view>
+  <cover-view class="status-bar" wx:if="{{status}}">{{status}}</cover-view>
 </view>

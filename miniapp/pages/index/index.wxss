@@ -3,24 +3,22 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #fff;
+  background: #f1f5f9;
 }
 
 .physics-canvas {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  z-index: 1;
 }
 
-/* 搜索栏 */
+/* 搜索栏 (cover-view) */
 .search-bar {
   position: absolute;
   top: 0; left: 0; right: 0;
   z-index: 10;
-  background: rgba(255,255,255,.95);
+  background: rgba(255,255,255,.96);
   padding: 20rpx 24rpx;
-  padding-top: calc(20rpx + env(safe-area-inset-top));
 }
 .search-row {
   display: flex;
@@ -34,42 +32,11 @@
   padding: 16rpx 28rpx;
   font-size: 28rpx;
   background: #f8fafc;
+  height: 36px;
 }
-
-/* 制作按钮 */
-.home-enter-btn {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
+.search-cancel {
+  flex-shrink: 0;
 }
-.home-back-btn {
-  position: absolute;
-  left: 50%; top: 60%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
-}
-
-/* 右上角工具 */
-.top-tools {
-  position: absolute;
-  top: 24rpx;
-  right: 24rpx;
-  z-index: 10;
-  display: flex;
-  gap: 16rpx;
-}
-
-/* 管理员入口 */
-.login-entry {
-  position: fixed;
-  bottom: 28rpx; left: 28rpx;
-  z-index: 60;
-  width: 28rpx; height: 28rpx;
-  border-radius: 50%;
-  background: rgba(15,23,42,.22);
-}
-.login-entry.authed { background: rgba(15,23,42,.92); }
 
 /* 登录弹窗 */
 .login-modal {
@@ -77,7 +44,7 @@
   top: 0; left: 0;
   width: 100%; height: 100%;
   z-index: 70;
-  background: rgba(255,255,255,.92);
+  background: rgba(255,255,255,.94);
   display: flex;
   align-items: center;
   justify-content: center;

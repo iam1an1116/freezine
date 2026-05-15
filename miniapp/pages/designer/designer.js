@@ -377,144 +377,20 @@ Page({
   },
 
   async _generateIcon() {
-    // Render 4 thumbnails + compose icon
-    const pages = this.pageStates;
+    // 直接用第一页作为封面
     const originalIdx = this.data.curPage;
-    const last = pages.length - 1;
-    const idxs = [...new Set([0, Math.min(1, last), Math.min(2, last), last])];
+    await this._loadPage(0); // 切到第一页
+    const iconPath = await this.engine.toDataURL();
+    await this._loadPage(originalIdx); // 恢复当前页
 
-    const thumbs = [];
-    for (const idx of idxs) {
-      await this._loadPage(idx);
-      const dataUrl = await this.engine.toDataURL();
-      thumbs.push(dataUrl);
-    }
-
-    // Restore original page
-    await this._loadPage(originalIdx);
-
-    // Compose icon using offscreen canvas
-    const size = 512;
-    const query = wx.createSelectorQuery();
+    // 转为 data URL 以便上传
     return new Promise(resolve => {
-      // Use a temp canvas approach: draw thumbs into main canvas, export
-      const canvas = this.engine.canvas;
-      const ctx = this.engine.ctx;
-      const dpr = this.engine.dpr;
-
-      // Resize canvas temporarily for icon
-      const origW = this.pageW;
-      const origH = this.pageH;
-      canvas.width = size * dpr;
-      canvas.height = size * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // bg
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, size, size);
-
-      // border
-      ctx.lineWidth = 8;
-      ctx.strokeStyle = 'rgba(124,92,255,.55)';
-      this._roundRect(ctx, 18, 18, size - 36, size - 36, 44);
-      ctx.stroke();
-
-      // 2x2 grid
-      const pad = 28;
-      const areaTop = 112;
-      const areaBottom = size - pad;
-      const gap = 18;
-      const cell = Math.floor((areaBottom - areaTop - gap) / 2);
-      const positions = [
-        { x: pad, y: areaTop },
-        { x: pad + cell + gap, y: areaTop },
-        { x: pad, y: areaTop + cell + gap },
-        { x: pad + cell + gap, y: areaTop + cell + gap }
-      ];
-
-      const imgs = [];
-      let loaded = 0;
-
-      thumbs.forEach((src, i) => {
-        const img = canvas.createImage();
-        img.onload = () => {
-          const pos = positions[i];
-          ctx.save();
-          ctx.fillStyle = 'rgba(124,92,255,.08)';
-          this._roundRect(ctx, pos.x - 10, pos.y - 10, cell + 20, cell + 20, 22);
-          ctx.fill();
-          ctx.beginPath();
-          this._roundRectPath(ctx, pos.x, pos.y, cell, cell, 20);
-          ctx.clip();
-          ctx.drawImage(img, pos.x, pos.y, cell, cell);
-          ctx.restore();
-
-          loaded++;
-          if (loaded === thumbs.length) this._finishIcon(canvas, ctx, size, dpr, origW, origH, resolve);
-        };
-        img.onerror = () => {
-          loaded++;
-          if (loaded === thumbs.length) this._finishIcon(canvas, ctx, size, dpr, origW, origH, resolve);
-        };
-        img.src = src;
-      });
-    });
-  },
-
-  _roundRect(ctx, x, y, w, h, r) {
-    this._roundRectPath(ctx, x, y, w, h, r);
-    ctx.fill();
-  },
-
-  _roundRectPath(ctx, x, y, w, h, r) {
-    const radius = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.arcTo(x + w, y, x + w, y + h, radius);
-    ctx.arcTo(x + w, y + h, x, y + h, radius);
-    ctx.arcTo(x, y + h, x, y, radius);
-    ctx.arcTo(x, y, x + w, y, radius);
-    ctx.closePath();
-  },
-
-  _finishIcon(canvas, ctx, size, dpr, origW, origH, resolve) {
-    // Title
-    ctx.fillStyle = '#111827';
-    ctx.font = '700 22px sans-serif';
-    ctx.fillText('自由ZINE', 48, 68);
-    ctx.fillStyle = 'rgba(17,24,39,.72)';
-    ctx.font = '600 16px sans-serif';
-    ctx.fillText(`共 ${this.data.pageCount} 页`, 48, 96);
-    // corner mark
-    ctx.fillStyle = 'rgba(124,92,255,.95)';
-    ctx.beginPath();
-    ctx.arc(size - 54, 58, 12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = '700 15px sans-serif';
-    ctx.fillText('Z', size - 58, 64);
-
-    wx.canvasToTempFilePath({
-      canvas,
-      success: res => {
-        // Convert temp file to base64 data URL so it persists after session
-        const fs = wx.getFileSystemManager();
-        try {
-          const b64 = fs.readFileSync(res.tempFilePath, 'base64');
-          const dataURL = 'data:image/png;base64,' + b64;
-          canvas.width = origW * dpr;
-          canvas.height = origH * dpr;
-          resolve(dataURL);
-        } catch (e) {
-          canvas.width = origW * dpr;
-          canvas.height = origH * dpr;
-          resolve(res.tempFilePath); // fallback
-        }
-      },
-      fail: () => {
-        canvas.width = origW * dpr;
-        canvas.height = origH * dpr;
-        resolve('');
+      const fs = wx.getFileSystemManager();
+      try {
+        const b64 = fs.readFileSync(iconPath, 'base64');
+        resolve('data:image/png;base64,' + b64);
+      } catch (_) {
+        resolve(iconPath);
       }
     });
   },
