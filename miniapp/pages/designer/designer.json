@@ -1,1 +1,1 @@
-{ "usingComponents": {} }
+{ "usingComponents": {}, "disableScroll": true, "navigationStyle": "custom" }
