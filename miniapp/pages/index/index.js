@@ -77,25 +77,6 @@ Page({
     }
   },
 
-  async _search(q) {
-    if (!q || !q.trim()) return;
-    this.setData({ status: '搜索中…', searchDone: false });
-    try {
-      const res = await api.searchZines(q.trim());
-      const items = (res && res.items) || [];
-      this.setData({
-        searchResults: items,
-        searchDone: true,
-        status: ''
-      });
-    } catch (e) {
-      this.setData({
-        searchResults: [],
-        searchDone: true,
-        status: `搜索失败: ${e.message || '未知错误'}`
-      });
-    }
-  },
 
   _buildBodies(items, isSearch) {
     this._bodies = [];
@@ -125,11 +106,21 @@ Page({
       };
       this._bodies.push(body);
 
-      if (isHTTP && this._canvas) {
-        const img = this._canvas.createImage();
-        img.onload = () => { body.imgLoaded = true; body.img = img; };
-        img.onerror = () => { body.imgLoaded = false; };
-        img.src = z.iconDataURL;
+      if (isHTTP) {
+        // canvas.createImage 不能直接加载外部 URL，先下载到本地
+        wx.downloadFile({
+          url: z.iconDataURL,
+          success: res => {
+            if (res.statusCode === 200 && res.tempFilePath) {
+              if (!this._canvas) { body.imgLoaded = false; return; }
+              const img = this._canvas.createImage();
+              img.onload = () => { body.imgLoaded = true; body.img = img; };
+              img.onerror = () => { body.imgLoaded = false; };
+              img.src = res.tempFilePath;
+            }
+          },
+          fail: () => { body.imgLoaded = false; }
+        });
       }
     }
   },
@@ -379,13 +370,34 @@ Page({
     this.setData({ showSearch: true, searchQuery: '', searchResults: [], searchDone: false });
   },
   onSearchInput(e) { this.setData({ searchQuery: e.detail.value }); },
-  onSearchConfirm() {
-    const q = this.data.searchQuery.trim();
-    if (q) this._search(q);
+  onSearch() {
+    const q = (this.data.searchQuery || '').trim();
+    if (!q) {
+      wx.showToast({ title: '请输入搜索词', icon: 'none' });
+      return;
+    }
+    this._doSearch(q);
+  },
+  async _doSearch(q) {
+    this.setData({ status: '搜索中…', searchDone: false, searchResults: [] });
+    try {
+      const res = await api.searchZines(q);
+      const items = (res && res.items) || [];
+      this.setData({
+        searchResults: items,
+        searchDone: true,
+        status: items.length > 0 ? '' : `未找到 "${q}"`
+      });
+    } catch (e) {
+      console.error('search error', e);
+      this.setData({
+        searchDone: true,
+        status: `搜索失败: ${e.message || '网络错误'}`
+      });
+    }
   },
   onSearchCancel() {
-    this.setData({ showSearch: false, searchQuery: '', searchResults: [], searchDone: false });
-    // 重新初始化 canvas（因为 wx:if 销毁了旧 canvas）
+    this.setData({ showSearch: false, searchQuery: '', searchResults: [], searchDone: false, status: '' });
     this._canvas = null;
     this._ctx = null;
     this._initCanvas().then(() => this._load());

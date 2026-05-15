@@ -8,7 +8,7 @@
     bindtap="onCanvasTap"
   ></canvas>
 
-  <!-- 搜索模式：普通 view，不受 canvas 层级影响 -->
+  <!-- 搜索模式 -->
   <view class="search-page" wx:if="{{showSearch}}">
     <view class="search-top">
       <view class="search-row">
@@ -16,10 +16,10 @@
           class="search-input"
           value="{{searchQuery}}"
           bindinput="onSearchInput"
-          bindconfirm="onSearchConfirm"
+          bindconfirm="onSearch"
           placeholder="搜索 ZINE 名称…"
-          focus="{{true}}"
         />
+        <button class="circle-btn primary small" bindtap="onSearch">搜索</button>
         <button class="circle-btn small" bindtap="onSearchCancel">取消</button>
       </view>
     </view>
