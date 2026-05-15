@@ -115,13 +115,12 @@ Page({
         this.engine.setActive(sel.id);
         const ol = sel.left, ot = sel.top, ow = sel.width||40, oh = sel.height||40;
         const sw = ow*(sel.scaleX||1), sh = oh*(sel.scaleY||1);
-        // 手柄位置 和 对象左上角
         const hx = [ol, ol+sw, ol, ol+sw, ol+sw/2, ol+sw/2, ol, ol+sw][handle];
         const hy = [ot, ot, ot+sh, ot+sh, ot, ot+sh, ot+sh/2, ot+sh/2][handle];
-        this._dragData = { lx:t.x, ly:t.y, handle, ow, oh, ol, ot, sw, sh, hx, hy };
+        this._dragData = { lx:t.x, ly:t.y, handle, ow, oh, ol, ot, sw, sh, hx, hy, rawX:0, rawY:0 };
       } else if (hitId) {
         this.engine.setActive(hitId);
-        this._dragData = { lx:t.x, ly:t.y };
+        this._dragData = { lx:t.x, ly:t.y, rawX:sel.left, rawY:sel.top };
       } else {
         this.engine.setActive(null);
         this._dragData = null;
@@ -178,9 +177,17 @@ Page({
         this.engine.dirty = true; this.engine.render();
       });
     } else {
+      // 普通拖拽：用 rawX/rawY 累加，吸附显示，不抖
+      const gs = this.data.gridSize || 20;
       this._getRect(rect => {
         const s = this.pageW / Math.max(1, rect.width);
         this.engine.moveActive(dx*s, dy*s);
+        // 吸附（不改变 lx/ly 基准，仅修正对象位置）
+        const obj = this.engine.getActive();
+        if (obj) {
+          obj.left = Math.round(obj.left / gs) * gs;
+          obj.top = Math.round(obj.top / gs) * gs;
+        }
       });
       this._dragData.lx = t.x; this._dragData.ly = t.y;
     }
