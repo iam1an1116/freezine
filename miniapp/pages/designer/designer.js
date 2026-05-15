@@ -73,7 +73,7 @@ Page({
       const sel = this.engine.activeId ? this.engine.objects.find(o => o.id === this.engine.activeId) : null;
       if (sel) {
         const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
-        const hs = 7; // 手柄检测半径
+        const hs = 11; // 手柄检测半径
         const pts = [
           {x:ox, y:oy},           // 0:左上
           {x:ox+sw, y:oy},        // 1:右上
@@ -144,44 +144,37 @@ Page({
         const sc = this.pageW / Math.max(1, rect.width);
         const h = this._dragData.handle;
         const d = this._dragData;
+        const clampS = v => Math.max(0.02, Math.min(5, v));
 
-        // 手柄新位置（canvas坐标）
-        const nhx = d.hx + dx * sc;
-        const nhy = d.hy + dy * sc;
-
-        // 锚点 = 对面（对象边界框）
-        let ax = d.ol, ay = d.ot;
-        if (h === 0 || h === 2 || h === 6) ax = d.ol + d.sw;   // 锚在右
-        if (h === 1 || h === 3 || h === 7) ax = d.ol;           // 锚在左
-        if (h === 0 || h === 1 || h === 4) ay = d.ot + d.sh;    // 锚在下
-        if (h === 2 || h === 3 || h === 5) ay = d.ot;           // 锚在上
-
-        // 边中点手柄：锁定一个轴
-        let hx = nhx, hy = nhy;
-        if (h === 4 || h === 5) hx = d.hx;  // 上下中点：X固定
-        if (h === 6 || h === 7) hy = d.hy;  // 左右中点：Y固定
-
-        const nw = Math.abs(hx - ax), nh = Math.abs(hy - ay);
-        const rsx = nw / Math.max(1, d.ow);
-        const rsy = nh / Math.max(1, d.oh);
-
-        if (h <= 3) {
+        if (h === 4 || h === 5) {
+          // 上下中点：纵向拉伸
+          const ay = h === 4 ? d.ot + d.sh : d.ot; // 锚点Y
+          const nhy = d.hy + dy * sc;
+          sel.top = Math.min(nhy, ay);
+          sel.scaleY = clampS(Math.abs(nhy - ay) / Math.max(1, d.oh));
+        } else if (h === 6 || h === 7) {
+          // 左右中点：横向拉伸
+          const ax = h === 6 ? d.ol + d.sw : d.ol; // 锚点X
+          const nhx = d.hx + dx * sc;
+          sel.left = Math.min(nhx, ax);
+          sel.scaleX = clampS(Math.abs(nhx - ax) / Math.max(1, d.ow));
+        } else {
+          // 四角
+          const ax = (h === 0 || h === 2) ? d.ol + d.sw : d.ol;
+          const ay = (h === 0 || h === 1) ? d.ot + d.sh : d.ot;
+          const nhx = d.hx + dx * sc, nhy = d.hy + dy * sc;
+          const rsx = Math.abs(nhx - ax) / Math.max(1, d.ow);
+          const rsy = Math.abs(nhy - ay) / Math.max(1, d.oh);
+          sel.left = Math.min(nhx, ax);
+          sel.top = Math.min(nhy, ay);
           if (sel.type === 'textbox' || sel.type === 'text') {
-            // 文字：自由拉伸
-            sel.scaleX = Math.max(0.02, Math.min(5, rsx));
-            sel.scaleY = Math.max(0.02, Math.min(5, rsy));
+            sel.scaleX = clampS(rsx);
+            sel.scaleY = clampS(rsy);
           } else {
-            // 图片：等比缩放
-            const s = Math.max(0.02, Math.min(5, Math.max(rsx, rsy)));
+            const s = clampS(Math.max(rsx, rsy));
             sel.scaleX = sel.scaleY = s;
           }
-        } else if (h <= 5) {
-          sel.scaleY = Math.max(0.02, Math.min(5, rsy));
-        } else {
-          sel.scaleX = Math.max(0.02, Math.min(5, rsx));
         }
-        sel.left = Math.min(hx, ax);
-        sel.top = Math.min(hy, ay);
         this.engine.dirty = true; this.engine.render();
       });
     } else {

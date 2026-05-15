@@ -326,7 +326,7 @@ class CanvasEngine {
         ctx.strokeRect(ox, oy, sw3, sh3);
         ctx.setLineDash([]);
         // 8个手柄：贴边
-        const hw = 10, hs = hw/2;
+        const hw = 14, hs = hw/2;
         const pts = [
           [ox-hs, oy-hs], [ox+sw3-hs, oy-hs], [ox-hs, oy+sh3-hs], [ox+sw3-hs, oy+sh3-hs],
           [ox+sw3/2-hs, oy-hs], [ox+sw3/2-hs, oy+sh3-hs],
