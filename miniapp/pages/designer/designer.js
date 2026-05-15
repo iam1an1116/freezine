@@ -88,6 +88,7 @@ Page({
       }
       this._lt = hitId ? {id:hitId, t:now} : null;
 
+      wx.showToast({ title: hitId ? 'HIT!' : 'miss', icon:'none', duration:300 });
       if (hitId) {
         this.engine.setActive(hitId);
         this._dragData = { lx:t.x, ly:t.y };
