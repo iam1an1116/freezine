@@ -68,9 +68,23 @@ Page({
       let hitId = this.engine.hitTest(cx1, cy1);
       if (!hitId) hitId = this.engine.hitTest(cx2, cy2);
 
+      // 角落手柄检测
+      let corner = -1;
+      const sel = this.engine.activeId ? this.engine.objects.find(o => o.id === this.engine.activeId) : null;
+      if (sel) {
+        const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
+        const hs = [
+          {x:ox-6, y:oy-6}, {x:ox+sw-6, y:oy-6},
+          {x:ox-6, y:oy+sh-6}, {x:ox+sw-6, y:oy+sh-6}
+        ];
+        for (let hi = 0; hi < 4; hi++) {
+          if (cx2 >= hs[hi].x && cx2 <= hs[hi].x+12 && cy2 >= hs[hi].y && cy2 <= hs[hi].y+12) { corner = hi; break; }
+        }
+      }
+
       // 双击编辑文字
       const now = Date.now();
-      if (hitId && this._lt && this._lt.id === hitId && (now - this._lt.t) < 400) {
+      if (corner < 0 && hitId && this._lt && this._lt.id === hitId && (now - this._lt.t) < 400) {
         const obj = this.engine.objects.find(o => o.id === hitId);
         if (obj && (obj.type==='textbox'||obj.type==='text')) {
           wx.showModal({
@@ -86,10 +100,12 @@ Page({
           this._lt = null; return;
         }
       }
-      this._lt = hitId ? {id:hitId, t:now} : null;
+      this._lt = (corner < 0 && hitId) ? {id:hitId, t:now} : null;
 
-      wx.showToast({ title: hitId ? 'HIT!' : 'miss', icon:'none', duration:300 });
-      if (hitId) {
+      if (corner >= 0) {
+        this.engine.setActive(sel.id);
+        this._dragData = { lx:t.x, ly:t.y, corner, osx:sel.scaleX||1, osy:sel.scaleY||1, ow:sel.width||40, oh:sel.height||40 };
+      } else if (hitId) {
         this.engine.setActive(hitId);
         this._dragData = { lx:t.x, ly:t.y };
       } else {
@@ -106,11 +122,29 @@ Page({
     if (!t) return;
     const dx = t.x-this._dragData.lx, dy = t.y-this._dragData.ly;
     if (Math.abs(dx)<3 && Math.abs(dy)<3) return;
-    this._getRect(rect => {
-      const s = this.pageW / Math.max(1, rect.width);
-      this.engine.moveActive(dx*s, dy*s);
-    });
-    this._dragData.lx = t.x; this._dragData.ly = t.y;
+
+    if (this._dragData.corner >= 0) {
+      // 角落缩放
+      const sel = this.engine.objects.find(o => o.id === this.engine.activeId);
+      if (!sel) return;
+      this._getRect(rect => {
+        const s = this.pageW / Math.max(1, rect.width);
+        const sdx = dx * s / this._dragData.ow;
+        const sdy = dy * s / this._dragData.oh;
+        const c = this._dragData.corner;
+        if (c === 0) { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx - sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy - sdy)); }
+        else if (c === 1) { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx + sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy - sdy)); }
+        else if (c === 2) { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx - sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy + sdy)); }
+        else { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx + sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy + sdy)); }
+        this.engine.dirty = true; this.engine.render();
+      });
+    } else {
+      this._getRect(rect => {
+        const s = this.pageW / Math.max(1, rect.width);
+        this.engine.moveActive(dx*s, dy*s);
+      });
+      this._dragData.lx = t.x; this._dragData.ly = t.y;
+    }
     this._saveCurrentPage();
   },
 
