@@ -64,10 +64,8 @@ Page({
     this._getRect(rect => {
       const sx = this.pageW / Math.max(1, rect.width);
       const sy = this.pageH / Math.max(1, rect.height);
-      const cx1 = (t.x - (rect.left||0)) * sx, cy1 = (t.y - (rect.top||0)) * sy;
-      const cx2 = t.x * sx, cy2 = t.y * sy;
-      let hitId = this.engine.hitTest(cx1, cy1);
-      if (!hitId) hitId = this.engine.hitTest(cx2, cy2);
+      const cx = t.x * sx, cy = t.y * sy;
+      const hitId = this.engine.hitTest(cx, cy);
 
       // 8个手柄检测 (4角 + 4边中点)
       let handle = -1;
@@ -86,7 +84,7 @@ Page({
           {x:ox+sw, y:oy+sh/2}    // 7:右中 (横向)
         ];
         for (let hi = 0; hi < 8; hi++) {
-          if (Math.abs(cx2 - pts[hi].x) <= hs && Math.abs(cy2 - pts[hi].y) <= hs) {
+          if (Math.abs(cx - pts[hi].x) <= hs && Math.abs(cy - pts[hi].y) <= hs) {
             handle = hi; break;
           }
         }
@@ -114,8 +112,12 @@ Page({
 
       if (handle >= 0) {
         this.engine.setActive(sel.id);
-        const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
-        this._dragData = { lx:t.x, ly:t.y, handle, ow:sel.width||40, oh:sel.height||40, ox, oy, sw, sh };
+        const ol = sel.left, ot = sel.top, ow = sel.width||40, oh = sel.height||40;
+        const sw = ow*(sel.scaleX||1), sh = oh*(sel.scaleY||1);
+        // 手柄位置 和 对象左上角
+        const hx = [ol, ol+sw, ol, ol+sw, ol+sw/2, ol+sw/2, ol, ol+sw][handle];
+        const hy = [ot, ot, ot+sh, ot+sh, ot, ot+sh, ot+sh/2, ot+sh/2][handle];
+        this._dragData = { lx:t.x, ly:t.y, handle, ow, oh, ol, ot, sw, sh, hx, hy };
       } else if (hitId) {
         this.engine.setActive(hitId);
         this._dragData = { lx:t.x, ly:t.y };
@@ -142,36 +144,33 @@ Page({
         const h = this._dragData.handle;
         const d = this._dragData;
 
-        // 手柄当前 canvas 坐标
-        const hx = d.ox + dx * sc;
-        const hy = d.oy + dy * sc;
+        // 手柄新位置（canvas坐标）
+        const nhx = d.hx + dx * sc;
+        const nhy = d.hy + dy * sc;
 
-        // 锚点 = 拖拽开始时的对面位置
-        let ax = d.ox, ay = d.oy;
-        if (h === 0 || h === 2 || h === 6) ax = d.ox + d.sw; // 右
-        if (h === 1 || h === 3 || h === 7) ax = d.ox;         // 左
-        if (h === 0 || h === 1 || h === 4) ay = d.oy + d.sh;  // 下
-        if (h === 2 || h === 3 || h === 5) ay = d.oy;         // 上
+        // 锚点 = 对面（对象边界框）
+        let ax = d.ol, ay = d.ot;
+        if (h === 0 || h === 2 || h === 6) ax = d.ol + d.sw;   // 锚在右
+        if (h === 1 || h === 3 || h === 7) ax = d.ol;           // 锚在左
+        if (h === 0 || h === 1 || h === 4) ay = d.ot + d.sh;    // 锚在下
+        if (h === 2 || h === 3 || h === 5) ay = d.ot;           // 锚在上
 
-        // 边手柄：锁定一个轴
-        if (h === 4 || h === 5) hx = d.ox;   // 上下边：不改X
-        if (h === 6 || h === 7) hy = d.oy;   // 左右边：不改Y
+        // 边中点手柄：锁定一个轴
+        let hx = nhx, hy = nhy;
+        if (h === 4 || h === 5) hx = d.hx;  // 上下中点：X固定
+        if (h === 6 || h === 7) hy = d.hy;  // 左右中点：Y固定
 
-        // 新尺寸
         const nw = Math.abs(hx - ax), nh = Math.abs(hy - ay);
-        const sx = nw / Math.max(1, d.ow);
-        const sy = nh / Math.max(1, d.oh);
+        const rsx = nw / Math.max(1, d.ow);
+        const rsy = nh / Math.max(1, d.oh);
 
         if (h <= 3) {
-          // 角：等比
-          const sc2 = Math.max(0.02, Math.min(5, Math.max(sx, sy)));
-          sel.scaleX = sel.scaleY = sc2;
+          const s = Math.max(0.02, Math.min(5, Math.max(rsx, rsy)));
+          sel.scaleX = sel.scaleY = s;
         } else if (h <= 5) {
-          // 上下边：纵向
-          sel.scaleY = Math.max(0.02, Math.min(5, sy));
+          sel.scaleY = Math.max(0.02, Math.min(5, rsy));
         } else {
-          // 左右边：横向
-          sel.scaleX = Math.max(0.02, Math.min(5, sx));
+          sel.scaleX = Math.max(0.02, Math.min(5, rsx));
         }
         sel.left = Math.min(hx, ax);
         sel.top = Math.min(hy, ay);

@@ -18,7 +18,7 @@
 .page-indicator { font-weight:700; font-size:26rpx; min-width:100rpx; text-align:center; }
 
 .toolbar { display:flex; gap:8rpx; flex-wrap:wrap; justify-content:center; }
-.toolbar .circle-btn { padding:8rpx 14rpx; font-size:22rpx; }
+.toolbar .circle-btn { padding:6rpx 12rpx; font-size:22rpx; border-width:1px; }
 
 .canvas-wrap { flex:1; display:flex; align-items:center; justify-content:center; background:#f8fafc; border-radius:18rpx; overflow:hidden; min-height:400rpx; }
 .zine-canvas { border:1px solid #e5e7eb; border-radius:8rpx; background:#fff; box-shadow:0 4px 24px rgba(15,23,42,.06); }
