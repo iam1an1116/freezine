@@ -16,7 +16,7 @@ Page({
     borderIdx:0, borderOptions:['灰色边框','黑色边框','无边框'],
     fontFamilyIdx:0, fontFamilies:['无衬线','衬线','宋体','楷体','仿宋','等宽','圆体','手写风'],
     fontFamilyValues:['sans-serif','serif','"Songti SC", serif','"Kaiti SC", serif','"FangSong", serif','monospace','"Hiragino Maru Gothic ProN", sans-serif','cursive'],
-    activeObj:false, activeObjScale:'1.00x', status:'',
+    activeObj:false, activeObjScale:'1.00x', status:'', snapOn:true, gridSize:20,
     showColor:false, colorTarget:'', colorPalette:['#0f172a','#334155','#475569','#64748b','#94a3b8','#cbd5e1','#e2e8f0','#f1f5f9','#ffffff','#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#78716c','#000000']
   },
   engine:null, pageStates:[], pageW:0, pageH:0, _zineId:null, _dragData:null, _lt:null,
@@ -40,6 +40,7 @@ Page({
         const canvas = res[0].node, ctx = canvas.getContext('2d'), dpr = sys.pixelRatio||2;
         canvas.width = w * dpr; canvas.height = h * dpr;
         this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
+        this.engine.showGuides = true; // 九宫格
         canvas.addEventListener('touchstart', this._onTS.bind(this));
         canvas.addEventListener('touchmove',  this._onTM.bind(this));
         canvas.addEventListener('touchend',   this._onTE.bind(this));
@@ -165,8 +166,15 @@ Page({
         const rsy = nh / Math.max(1, d.oh);
 
         if (h <= 3) {
-          const s = Math.max(0.02, Math.min(5, Math.max(rsx, rsy)));
-          sel.scaleX = sel.scaleY = s;
+          if (sel.type === 'textbox' || sel.type === 'text') {
+            // 文字：自由拉伸
+            sel.scaleX = Math.max(0.02, Math.min(5, rsx));
+            sel.scaleY = Math.max(0.02, Math.min(5, rsy));
+          } else {
+            // 图片：等比缩放
+            const s = Math.max(0.02, Math.min(5, Math.max(rsx, rsy)));
+            sel.scaleX = sel.scaleY = s;
+          }
         } else if (h <= 5) {
           sel.scaleY = Math.max(0.02, Math.min(5, rsy));
         } else {
@@ -180,6 +188,15 @@ Page({
       this._getRect(rect => {
         const s = this.pageW / Math.max(1, rect.width);
         this.engine.moveActive(dx*s, dy*s);
+        // 吸附网格
+        if (this.data.snapOn) {
+          const gs = this.data.gridSize || 20;
+          const obj = this.engine.getActive();
+          if (obj) {
+            obj.left = Math.round(obj.left / gs) * gs;
+            obj.top = Math.round(obj.top / gs) * gs;
+          }
+        }
       });
       this._dragData.lx = t.x; this._dragData.ly = t.y;
     }

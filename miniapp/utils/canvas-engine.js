@@ -260,6 +260,22 @@ class CanvasEngine {
     ctx.fillStyle = this.background;
     ctx.fillRect(0, 0, this.w, this.h);
 
+    // 九宫格参考线
+    if (this.showGuides) {
+      ctx.strokeStyle = 'rgba(99,102,241,.12)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 8]);
+      const gx1 = this.w / 3, gx2 = this.w * 2 / 3;
+      const gy1 = this.h / 3, gy2 = this.h * 2 / 3;
+      ctx.beginPath();
+      ctx.moveTo(gx1, 0); ctx.lineTo(gx1, this.h);
+      ctx.moveTo(gx2, 0); ctx.lineTo(gx2, this.h);
+      ctx.moveTo(0, gy1); ctx.lineTo(this.w, gy1);
+      ctx.moveTo(0, gy2); ctx.lineTo(this.w, gy2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     for (const o of this.objects) {
       ctx.save();
       const ox = o.left;

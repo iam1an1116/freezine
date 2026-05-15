@@ -44,10 +44,10 @@
 
     <!-- 工具栏 -->
     <view class="toolbar">
-      <button class="circle-btn small" bindtap="onAddText">文字</button>
-      <button class="circle-btn small" bindtap="onAddImage">图片</button>
-      <button class="circle-btn small" bindtap="onDelActive">删除</button>
-      <button class="circle-btn small danger" bindtap="onClearPage">清空</button>
+      <button class="tb-btn" bindtap="onAddText">文字</button>
+      <button class="tb-btn" bindtap="onAddImage">图片</button>
+      <button class="tb-btn" bindtap="onDelActive">删除</button>
+      <button class="tb-btn danger" bindtap="onClearPage">清空</button>
     </view>
 
     <view class="canvas-wrap">
