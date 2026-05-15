@@ -60,16 +60,6 @@
       <button class="circle-btn small danger" bindtap="onClearPage">清空本页</button>
     </view>
 
-    <!-- 对象选择与移动 -->
-    <view class="toolbar">
-      <button class="circle-btn small" bindtap="onSelectPrev">上一个</button>
-      <button class="circle-btn small" bindtap="onSelectNext">下一个</button>
-      <button class="circle-btn small" bindtap="onMoveUp">↑</button>
-      <button class="circle-btn small" bindtap="onMoveDown">↓</button>
-      <button class="circle-btn small" bindtap="onMoveLeft">←</button>
-      <button class="circle-btn small" bindtap="onMoveRight">→</button>
-    </view>
-
     <view class="canvas-wrap">
       <canvas
         type="2d"
@@ -77,14 +67,15 @@
         class="zine-canvas"
         style="width: {{canvasStyleW}}px; height: {{canvasStyleH}}px;"
         disable-scroll="true"
-        bindtouchstart="onTouchStart"
-        bindtouchmove="onTouchMove"
-        bindtouchend="onTouchEnd"
+        catchtouchstart="onTouchStart"
+        catchtouchmove="onTouchMove"
+        catchtouchend="onTouchEnd"
+        catchtap="onCanvasTap"
       ></canvas>
     </view>
 
     <!-- 样式控制 -->
-    <scroll-view class="style-bar" scroll-x>
+    <view class="style-bar">
       <view class="style-row">
         <view class="style-item">
           <text class="style-label">文字大小</text>
@@ -116,7 +107,7 @@
           </picker>
         </view>
       </view>
-    </scroll-view>
+    </view>
 
     <!-- 缩放按钮 -->
     <view class="scale-bar" wx:if="{{activeObj}}">

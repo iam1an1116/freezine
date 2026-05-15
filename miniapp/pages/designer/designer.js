@@ -90,50 +90,18 @@ Page({
           canvas.height = h * dpr;
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
+
+          // 用 canvas 节点原生事件（比 WXML bind 更可靠）
+          canvas.addEventListener('touchstart', this._onTS.bind(this));
+          canvas.addEventListener('touchmove',  this._onTM.bind(this));
+          canvas.addEventListener('touchend',   this._onTE.bind(this));
+
           resolve();
         });
     });
   },
 
-  // ---------- 对象选择与移动（按钮操控）----------
-  _activeObj() { return this.engine ? this.engine.getActive() : null; },
-
-  onSelectPrev() {
-    if (!this.engine || !this.engine.objects.length) return;
-    const cur = this.engine.activeId;
-    const idx = this.engine.objects.findIndex(o => o.id === cur);
-    const next = (idx < 0 || idx === 0) ? this.engine.objects.length - 1 : idx - 1;
-    this.engine.setActive(this.engine.objects[next].id);
-    this._saveCurrentPage();
-    this._syncActive();
-  },
-
-  onSelectNext() {
-    if (!this.engine || !this.engine.objects.length) return;
-    const cur = this.engine.activeId;
-    const idx = this.engine.objects.findIndex(o => o.id === cur);
-    const next = (idx < 0 || idx >= this.engine.objects.length - 1) ? 0 : idx + 1;
-    this.engine.setActive(this.engine.objects[next].id);
-    this._saveCurrentPage();
-    this._syncActive();
-  },
-
-  _moveObj(dx, dy) {
-    const obj = this._activeObj();
-    if (!obj) return;
-    obj.left += dx;
-    obj.top += dy;
-    this.engine.dirty = true;
-    this.engine.render();
-    this._saveCurrentPage();
-  },
-
-  onMoveUp() { this._moveObj(0, -10); },
-  onMoveDown() { this._moveObj(0, 10); },
-  onMoveLeft() { this._moveObj(-10, 0); },
-  onMoveRight() { this._moveObj(10, 0); },
-
-  // ---- Touch (真机可用) ----
+  // ---- 触摸 (canvas node 原生事件 + WXML catch 回退) ----
   _getRect(cb) {
     if (this.__rect) return cb(this.__rect);
     wx.createSelectorQuery().select('#zineCanvas').boundingClientRect().exec(r => {
@@ -142,9 +110,11 @@ Page({
     });
   },
 
-  onTouchStart(e) {
+  _onTS(e) {
+    wx.showToast({ title: 'TOUCH!', icon: 'none', duration: 500 });
     if (!this.engine) return;
-    const t = e.touches[0];
+    const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : null);
+    if (!t) return;
     this._getRect(rect => {
       const sx = this.pageW / rect.width;
       const sy = this.pageH / rect.height;
@@ -162,9 +132,10 @@ Page({
     });
   },
 
-  onTouchMove(e) {
+  _onTM(e) {
     if (!this.engine || !this._dragData) return;
-    const t = e.touches[0];
+    const t = e.touches ? e.touches[0] : null;
+    if (!t) return;
     const dx = t.x - this._dragData.lx;
     const dy = t.y - this._dragData.ly;
     if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
@@ -177,7 +148,24 @@ Page({
     });
   },
 
-  onTouchEnd() { this._dragData = null; },
+  _onTE() { this._dragData = null; },
+
+  // WXML catch 回退
+  onTouchStart(e) { this._onTS(e); },
+  onTouchMove(e) { this._onTM(e); },
+  onTouchEnd(e) { this._onTE(e); },
+  onCanvasTap(e) {
+    wx.showToast({ title: 'TAP!', icon: 'none', duration: 500 });
+    if (!this.engine) return;
+    const t = e.detail;
+    const cw = Math.max(1, this.data.canvasStyleW || 300);
+    const ch = Math.max(1, this.data.canvasStyleH || 300);
+    const cx = (t.x || 0) * (this.pageW / cw);
+    const cy = (t.y || 0) * (this.pageH / ch);
+    const hitId = this.engine.hitTest(cx, cy);
+    this.engine.setActive(hitId || null);
+    this._syncActive();
+  },
 
   _syncActive() {
     const obj = this.engine ? this.engine.getActive() : null;

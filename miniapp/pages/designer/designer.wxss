@@ -123,13 +123,14 @@
 
 /* 样式控制 */
 .style-bar {
-  white-space: nowrap;
   padding: 10rpx 0;
+  overflow-x: auto;
 }
 .style-row {
-  display: inline-flex;
+  display: flex;
   gap: 18rpx;
   padding: 0 14rpx;
+  flex-wrap: wrap;
 }
 .style-item {
   display: flex;
