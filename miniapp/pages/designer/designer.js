@@ -151,7 +151,9 @@ Page({
 
   // tap：优先用 detail.x/y (相对元素), 加调试红点
   onCanvasTap(e) {
-    if (!this.engine) return;
+    // 先验证事件到达
+    wx.showToast({ title: 'tap!', icon: 'none', duration: 500 });
+    if (!this.engine) { wx.showToast({ title: 'no engine', icon: 'none' }); return; }
     const cw = Math.max(1, this.data.canvasStyleW || 300);
     const ch = Math.max(1, this.data.canvasStyleH || 300);
     const sx = this.pageW / cw;
