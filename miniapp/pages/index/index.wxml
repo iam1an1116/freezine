@@ -1,14 +1,42 @@
 <view class="home-view">
-  <!-- Canvas（搜索时隐藏，因为 input 没法在 canvas 上用） -->
-  <canvas
-    wx:if="{{!showSearch}}"
-    type="2d"
-    id="physicsCanvas"
-    class="physics-canvas"
-    bindtap="onCanvasTap"
-  ></canvas>
+  <!-- 图标墙 -->
+  <view class="icons-wall">
+    <block wx:for="{{icons}}" wx:key="id">
+      <view
+        class="zine-item"
+        data-id="{{item.id}}"
+        style="left: {{item._x}}px; top: {{item._y}}px; width: {{item._w}}px;"
+        bindtap="onIconTap"
+      >
+        <view class="zine-icon-btn" style="width: {{item._bw}}px; height: {{item._bh}}px;">
+          <image
+            wx:if="{{item.iconDataURL}}"
+            class="zine-icon-img"
+            src="{{item.iconDataURL}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="zine-placeholder">
+            <text>{{item.title ? item.title.slice(0,2) : 'Z'}}</text>
+          </view>
+        </view>
+        <text class="zine-name">{{item.title || '未命名'}}</text>
+      </view>
+    </block>
+  </view>
 
-  <!-- 搜索模式 -->
+  <!-- 中央制作按钮 -->
+  <button class="circle-btn primary home-enter-btn" bindtap="onEnter">现在，设计你的ZINE</button>
+
+  <!-- 右上角工具 -->
+  <view class="top-tools">
+    <button class="circle-btn small" bindtap="onRefresh">↻ 刷新</button>
+    <button class="circle-btn small" bindtap="onSearchTap">🔍 搜索</button>
+  </view>
+
+  <!-- 左下角管理员 -->
+  <view class="login-entry {{admin ? 'authed' : ''}}" bindtap="onLoginTap"></view>
+
+  <!-- 搜索页 -->
   <view class="search-page" wx:if="{{showSearch}}">
     <view class="search-top">
       <view class="search-row">
@@ -18,39 +46,28 @@
           bindinput="onSearchInput"
           bindconfirm="onSearch"
           placeholder="搜索 ZINE 名称…"
-          focus="{{showSearch}}"
+          focus="{{true}}"
           confirm-type="search"
         />
-        <button class="circle-btn primary small" bindtap="onSearch">搜索</button>
         <button class="circle-btn small" bindtap="onSearchCancel">取消</button>
       </view>
     </view>
-    <scroll-view class="search-results" scroll-y wx:if="{{searchResults.length > 0}}">
+    <scroll-view class="search-results" scroll-y wx:if="{{searchResults.length}}">
       <view
-        wx:for="{{searchResults}}"
-        wx:key="id"
-        class="search-item"
-        bindtap="onSearchItemTap"
-        data-id="{{item.id}}"
+        wx:for="{{searchResults}}" wx:key="id"
+        class="search-item" bindtap="onSearchItemTap" data-id="{{item.id}}"
       >
-        <image
-          wx:if="{{item.iconDataURL}}"
-          class="search-thumb"
-          src="{{item.iconDataURL}}"
-          mode="aspectFill"
-        />
-        <view wx:else class="search-thumb-placeholder">
-          <text>{{item.title ? item.title.slice(0,2) : 'Z'}}</text>
-        </view>
+        <image wx:if="{{item.iconDataURL}}" class="search-thumb" src="{{item.iconDataURL}}" mode="aspectFill" />
+        <view wx:else class="search-thumb-bg"><text>{{item.title ? item.title.slice(0,2) : 'Z'}}</text></view>
         <view class="search-info">
           <text class="search-title">{{item.title || '未命名'}}</text>
           <text class="search-pages" wx:if="{{item.pageCount}}">{{item.pageCount}} 页</text>
         </view>
       </view>
     </scroll-view>
-    <view class="search-empty" wx:if="{{searchDone && searchResults.length === 0}}">
+    <view class="search-empty" wx:if="{{searchDone && !searchResults.length}}">
       <text>未找到匹配的 ZINE</text>
-      <button class="circle-btn small" bindtap="onSearchCancel">返回主页</button>
+      <button class="circle-btn small" bindtap="onSearchCancel">返回</button>
     </view>
   </view>
 
