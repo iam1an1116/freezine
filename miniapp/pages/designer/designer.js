@@ -104,7 +104,14 @@ Page({
 
       if (corner >= 0) {
         this.engine.setActive(sel.id);
-        this._dragData = { lx:t.x, ly:t.y, corner, osx:sel.scaleX||1, osy:sel.scaleY||1, ow:sel.width||40, oh:sel.height||40 };
+        // 记录锚点（对面角落）的绝对位置
+        const ox = sel.left, oy = sel.top, sw = (sel.width||40)*(sel.scaleX||1), sh = (sel.height||40)*(sel.scaleY||1);
+        let ax, ay; // anchor
+        if (corner === 0) { ax = ox+sw; ay = oy+sh; }        // 左上→锚点在右下
+        else if (corner === 1) { ax = ox; ay = oy+sh; }       // 右上→锚点在左下
+        else if (corner === 2) { ax = ox+sw; ay = oy; }       // 左下→锚点在右上
+        else { ax = ox; ay = oy; }                              // 右下→锚点在左上
+        this._dragData = { lx:t.x, ly:t.y, corner, ax, ay, ow:sel.width||40, oh:sel.height||40, ox, oy };
       } else if (hitId) {
         this.engine.setActive(hitId);
         this._dragData = { lx:t.x, ly:t.y };
@@ -124,18 +131,28 @@ Page({
     if (Math.abs(dx)<3 && Math.abs(dy)<3) return;
 
     if (this._dragData.corner >= 0) {
-      // 角落缩放
       const sel = this.engine.objects.find(o => o.id === this.engine.activeId);
       if (!sel) return;
       this._getRect(rect => {
         const s = this.pageW / Math.max(1, rect.width);
-        const sdx = dx * s / this._dragData.ow;
-        const sdy = dy * s / this._dragData.oh;
-        const c = this._dragData.corner;
-        if (c === 0) { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx - sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy - sdy)); }
-        else if (c === 1) { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx + sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy - sdy)); }
-        else if (c === 2) { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx - sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy + sdy)); }
-        else { sel.scaleX = Math.max(0.1, Math.min(5, this._dragData.osx + sdx)); sel.scaleY = Math.max(0.1, Math.min(5, this._dragData.osy + sdy)); }
+        const hx = this._dragData.ox + dx * s;  // 手柄当前 canvas 坐标
+        const hy = this._dragData.oy + dy * s;
+        const d = this._dragData;
+        // 根据锚点计算新的尺寸和位置
+        let nl = d.ox, nt = d.oy, nw = d.ow, nh = d.oh;
+        if (d.corner === 0) { // 左上 → 锚点在右下
+          nl = hx; nt = hy; nw = d.ax - nl; nh = d.ay - nt;
+        } else if (d.corner === 1) { // 右上 → 锚点在左下
+          nt = hy; nw = hx - d.ax; nh = d.ay - nt;
+        } else if (d.corner === 2) { // 左下 → 锚点在右上
+          nl = hx; nw = d.ax - nl; nh = hy - d.ay;
+        } else { // 右下 → 锚点在左上
+          nw = hx - d.ax; nh = hy - d.ay;
+        }
+        sel.left = Math.min(nl, d.ax);
+        sel.top = Math.min(nt, d.ay);
+        sel.scaleX = Math.max(0.05, Math.min(5, Math.abs(nw) / Math.max(1, d.ow)));
+        sel.scaleY = Math.max(0.05, Math.min(5, Math.abs(nh) / Math.max(1, d.oh)));
         this.engine.dirty = true; this.engine.render();
       });
     } else {
