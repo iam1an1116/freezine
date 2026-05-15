@@ -91,15 +91,14 @@ Page({
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
 
-          // canvas 节点原生事件
           canvas.addEventListener('touchstart', this._onTS.bind(this));
           canvas.addEventListener('touchmove',  this._onTM.bind(this));
           canvas.addEventListener('touchend',   this._onTE.bind(this));
 
-          // 缓存 canvas 实际渲染尺寸（用于坐标转换）
+          // 获取 canvas 实际渲染尺寸用于坐标转换
           wx.createSelectorQuery().select('#zineCanvas')
             .boundingClientRect().exec(r => {
-              if (r && r[0] && r[0].width > 0) this._cr = r[0];
+              if (r && r[0] && r[0].width > 0) this.__cr = r[0];
             });
 
           resolve();
@@ -107,54 +106,50 @@ Page({
     });
   },
 
-  // ---- 触摸 (canvas 节点原生事件, 坐标是 canvas 相对的) ----
+  // ---- 触摸 ----
+  _getCR(cb) {
+    if (this.__cr) return cb(this.__cr);
+    wx.createSelectorQuery().select('#zineCanvas').boundingClientRect().exec(r => {
+      if (r && r[0] && r[0].width > 0) this.__cr = r[0];
+      cb(this.__cr || { width: this.data.canvasStyleW || 300, height: this.data.canvasStyleH || 300 });
+    });
+  },
+
   _onTS(e) {
     if (!this.engine) return;
     const t = e.touches ? e.touches[0] : null;
     if (!t) return;
-    const w = this._cr ? this._cr.width : (this.data.canvasStyleW || 300);
-    const h = this._cr ? this._cr.height : (this.data.canvasStyleH || 300);
-    const cx = t.x * (this.pageW / Math.max(1, w));
-    const cy = t.y * (this.pageH / Math.max(1, h));
-    const hitId = this.engine.hitTest(cx, cy);
-
-    // 双击检测（用于编辑文字）
-    const now = Date.now();
-    if (hitId) {
-      const obj = this.engine.objects.find(o => o.id === hitId);
-      if (obj && obj.type === 'text' && this._lastTap && this._lastTap.id === hitId && (now - this._lastTap.time) < 400) {
-        // 双击文字 → 编辑
-        this._editText(obj);
-        this._lastTap = null;
-        return;
+    this._getCR(cr => {
+      const sx = this.pageW / Math.max(1, cr.width);
+      const sy = this.pageH / Math.max(1, cr.height);
+      const cx = t.x * sx, cy = t.y * sy;
+      const hitId = this.engine.hitTest(cx, cy);
+      const now = Date.now();
+      if (hitId) {
+        const obj = this.engine.objects.find(o => o.id === hitId);
+        if (obj && (obj.type === 'textbox' || obj.type === 'text') && this._lt && this._lt.id === hitId && (now - this._lt.t) < 400) {
+          this._editText(obj); this._lt = null; return;
+        }
+        this._lt = { id: hitId, t: now };
+        this.engine.setActive(hitId);
+        this._dragData = { lx: t.x, ly: t.y };
+      } else {
+        this._lt = null; this.engine.setActive(null); this._dragData = null;
       }
-      this._lastTap = { id: hitId, time: now };
-    } else {
-      this._lastTap = null;
-    }
-
-    if (hitId) {
-      this.engine.setActive(hitId);
-      this._dragData = { lx: t.x, ly: t.y };
-    } else {
-      this.engine.setActive(null);
-      this._dragData = null;
-    }
-    this._syncActive();
+      this._syncActive();
+    });
   },
 
   _onTM(e) {
     if (!this.engine || !this._dragData) return;
     const t = e.touches ? e.touches[0] : null;
     if (!t) return;
-    const dx = t.x - this._dragData.lx;
-    const dy = t.y - this._dragData.ly;
+    const dx = t.x - this._dragData.lx, dy = t.y - this._dragData.ly;
     if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
-    const w = this._cr ? this._cr.width : (this.data.canvasStyleW || 300);
-    const h = this._cr ? this._cr.height : (this.data.canvasStyleH || 300);
-    this.engine.moveActive(dx * (this.pageW / Math.max(1, w)), dy * (this.pageH / Math.max(1, h)));
-    this._dragData.lx = t.x;
-    this._dragData.ly = t.y;
+    this._getCR(cr => {
+      this.engine.moveActive(dx * (this.pageW / Math.max(1, cr.width)), dy * (this.pageH / Math.max(1, cr.height)));
+    });
+    this._dragData.lx = t.x; this._dragData.ly = t.y;
     this._saveCurrentPage();
   },
 
@@ -162,16 +157,12 @@ Page({
 
   _editText(obj) {
     wx.showModal({
-      title: '编辑文字',
-      editable: true,
-      placeholderText: '输入文字',
-      content: obj.t || '',
+      title: '编辑文字', editable: true, placeholderText: '输入文字',
+      content: obj.text || obj.t || '',
       success: res => {
         if (res.confirm && res.content !== undefined) {
-          obj.t = res.content;
-          this.engine.dirty = true;
-          this.engine.render();
-          this._saveCurrentPage();
+          obj.text = res.content; obj.t = res.content;
+          this.engine.dirty = true; this.engine.render(); this._saveCurrentPage();
         }
       }
     });
