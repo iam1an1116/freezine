@@ -91,64 +91,50 @@ Page({
 
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
 
-          // 用 canvas 节点原生事件（比 WXML bind 更可靠）
+          // canvas 节点原生事件（坐标是 canvas 相对坐标）
           canvas.addEventListener('touchstart', this._onTS.bind(this));
           canvas.addEventListener('touchmove',  this._onTM.bind(this));
           canvas.addEventListener('touchend',   this._onTE.bind(this));
+          this._scaleX = this.pageW / Math.max(1, displayW);
+          this._scaleY = this.pageH / Math.max(1, displayH);
 
           resolve();
         });
     });
   },
 
-  // ---- 触摸 (canvas node 原生事件 + WXML catch 回退) ----
-  _getRect(cb) {
-    if (this.__rect) return cb(this.__rect);
-    wx.createSelectorQuery().select('#zineCanvas').boundingClientRect().exec(r => {
-      if (r && r[0] && r[0].width > 0) this.__rect = r[0];
-      cb(this.__rect || { left:0, top:0, width:this.data.canvasStyleW||300, height:this.data.canvasStyleH||300 });
-    });
-  },
-
+  // ---- 触摸 (canvas 节点原生事件, 坐标是 canvas 相对的) ----
   _onTS(e) {
     if (!this.engine) return;
-    const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : null);
+    const t = e.touches ? e.touches[0] : null;
     if (!t) return;
-    this._getRect(rect => {
-      // 尝试两种坐标转换，看哪个能命中
-      const sx = this.pageW / Math.max(1, rect.width);
-      const sy = this.pageH / Math.max(1, rect.height);
+    const cx = t.x * this._scaleX;
+    const cy = t.y * this._scaleY;
+    const hitId = this.engine.hitTest(cx, cy);
 
-      // 方式1：touch coords - rect offset（viewport 相对坐标）
-      const cx1 = (t.x - (rect.left || 0)) * sx;
-      const cy1 = (t.y - (rect.top || 0)) * sy;
-      // 方式2：touch coords 直接缩放（canvas 相对坐标）
-      const cx2 = t.x * sx;
-      const cy2 = t.y * sy;
-
-      let hitId = this.engine.hitTest(cx1, cy1);
-      if (!hitId) hitId = this.engine.hitTest(cx2, cy2);
-
-      // 日志
-      const objs = this.engine.objects;
-      let info = `touch:(${t.x},${t.y}) rect:(${rect.left},${rect.top},${rect.width},${rect.height})`;
-      info += ` => (${cx1.toFixed(0)},${cy1.toFixed(0)}) or (${cx2.toFixed(0)},${cy2.toFixed(0)})`;
-      if (objs.length) {
-        const o = objs[0];
-        info += ` | obj:(${o.left},${o.top},${o.width*o.scaleX},${o.height*o.scaleY})`;
+    // 双击检测（用于编辑文字）
+    const now = Date.now();
+    if (hitId) {
+      const obj = this.engine.objects.find(o => o.id === hitId);
+      if (obj && obj.type === 'text' && this._lastTap && this._lastTap.id === hitId && (now - this._lastTap.time) < 400) {
+        // 双击文字 → 编辑
+        this._editText(obj);
+        this._lastTap = null;
+        return;
       }
-      console.log(info);
-      wx.showToast({ title: hitId ? 'HIT!' : `(${cx2.toFixed(0)},${cy2.toFixed(0)})`, icon: 'none', duration: 800 });
+      this._lastTap = { id: hitId, time: now };
+    } else {
+      this._lastTap = null;
+    }
 
-      if (hitId) {
-        this.engine.setActive(hitId);
-        this._dragData = { lx: t.x, ly: t.y, active: hitId };
-      } else {
-        this.engine.setActive(null);
-        this._dragData = null;
-      }
-      this._syncActive();
-    });
+    if (hitId) {
+      this.engine.setActive(hitId);
+      this._dragData = { lx: t.x, ly: t.y };
+    } else {
+      this.engine.setActive(null);
+      this._dragData = null;
+    }
+    this._syncActive();
   },
 
   _onTM(e) {
@@ -158,33 +144,35 @@ Page({
     const dx = t.x - this._dragData.lx;
     const dy = t.y - this._dragData.ly;
     if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
-    this._getRect(rect => {
-      const s = this.pageW / rect.width;
-      this.engine.moveActive(dx * s, dy * s);
-      this._dragData.lx = t.x;
-      this._dragData.ly = t.y;
-      this._saveCurrentPage();
-    });
+    this.engine.moveActive(dx * this._scaleX, dy * this._scaleY);
+    this._dragData.lx = t.x;
+    this._dragData.ly = t.y;
+    this._saveCurrentPage();
   },
 
   _onTE() { this._dragData = null; },
+
+  _editText(obj) {
+    wx.showModal({
+      title: '编辑文字',
+      editable: true,
+      placeholderText: '输入文字',
+      content: obj.t || '',
+      success: res => {
+        if (res.confirm && res.content !== undefined) {
+          obj.t = res.content;
+          this.engine.dirty = true;
+          this.engine.render();
+          this._saveCurrentPage();
+        }
+      }
+    });
+  },
 
   // WXML catch 回退
   onTouchStart(e) { this._onTS(e); },
   onTouchMove(e) { this._onTM(e); },
   onTouchEnd(e) { this._onTE(e); },
-  onCanvasTap(e) {
-    wx.showToast({ title: 'TAP!', icon: 'none', duration: 500 });
-    if (!this.engine) return;
-    const t = e.detail;
-    const cw = Math.max(1, this.data.canvasStyleW || 300);
-    const ch = Math.max(1, this.data.canvasStyleH || 300);
-    const cx = (t.x || 0) * (this.pageW / cw);
-    const cy = (t.y || 0) * (this.pageH / ch);
-    const hitId = this.engine.hitTest(cx, cy);
-    this.engine.setActive(hitId || null);
-    this._syncActive();
-  },
 
   _syncActive() {
     const obj = this.engine ? this.engine.getActive() : null;
