@@ -187,19 +187,7 @@ Page({
     this._saveCurrentPage();
   },
 
-  _onTE() {
-    // 松手时吸附网格
-    if (this.data.snapOn && this.engine) {
-      const gs = this.data.gridSize || 20;
-      const obj = this.engine.getActive();
-      if (obj) {
-        obj.left = Math.round(obj.left / gs) * gs;
-        obj.top = Math.round(obj.top / gs) * gs;
-        this.engine.dirty = true; this.engine.render(); this._saveCurrentPage();
-      }
-    }
-    this._dragData = null;
-  },
+  _onTE() { this._dragData = null; },
 
   // WXML catch 事件入口
   onTS(e) { wx.showToast({title:'T',icon:'none',duration:300}); this._onTS(e); },
