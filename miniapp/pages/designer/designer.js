@@ -92,20 +92,33 @@ Page({
           this.engine = new CanvasEngine(canvas, ctx, w, h, dpr);
           this._touchData = { lastX: 0, lastY: 0, dragging: false };
 
-          // 延迟获取 canvas 实际位置（等布局完成）
-          setTimeout(() => {
-            wx.createSelectorQuery().select('#zineCanvas')
-              .boundingClientRect().exec(r => {
-                if (r && r[0]) {
-                  this._canvasRect = r[0];
-                  console.log('canvas rect', JSON.stringify(this._canvasRect));
-                }
-              });
-          }, 150);
+          // 延迟获取 canvas 实际位置
+          this._queryRect(0);
 
           resolve();
         });
     });
+  },
+
+  _queryRect(retry) {
+    wx.createSelectorQuery().select('#zineCanvas')
+      .boundingClientRect().exec(r => {
+        if (r && r[0] && r[0].width > 0 && r[0].height > 0) {
+          this._canvasRect = r[0];
+        } else if (retry < 5) {
+          // canvas 可能还没布局完，重试
+          setTimeout(() => this._queryRect(retry + 1), 200);
+        } else {
+          // 最终回退：用估算值
+          const sys = wx.getSystemInfoSync();
+          this._canvasRect = {
+            left: (sys.windowWidth - this.data.canvasStyleW) / 2,
+            top: 180,
+            width: this.data.canvasStyleW,
+            height: this.data.canvasStyleH
+          };
+        }
+      });
   },
 
   // ---------- Touch ----------
