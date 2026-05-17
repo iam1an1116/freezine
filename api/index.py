@@ -206,3 +206,25 @@ def upload_image():
   except Exception as e:
     return jsonify({"error": "failed_to_upload", "detail": str(e)}), 500
 
+
+
+@app.get("/api/settings/<key>")
+def get_setting(key):
+  try:
+    r = supabase.table("settings").select("value").eq("key", key).limit(1).execute()
+    rows = r.data or []
+    return jsonify({"value": rows[0].get("value", "") if rows else ""})
+  except Exception as e:
+    return jsonify({"error": str(e)}), 500
+
+
+@app.put("/api/settings/<key>")
+def put_setting(key):
+  body = request.get_json(silent=True)
+  if not isinstance(body, dict):
+    return jsonify({"error": "bad_body"}), 400
+  try:
+    supabase.table("settings").upsert({"key": key, "value": body.get("value", "")}).execute()
+    return jsonify({"ok": True})
+  except Exception as e:
+    return jsonify({"error": str(e)}), 500

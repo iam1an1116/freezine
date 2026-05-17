@@ -1,21 +1,19 @@
 const api = require('../../utils/api');
-const auth = require('../../utils/auth');
 const MAX = 10;
 
 Page({
   data: {
-    admin: false, showLogin: false, loginUser: '', loginPass: '', status: '',
+    status: '',
     showSearch: false, searchQuery: '', searchResults: [], searchDone: false
   },
 
   _bodies: [], _canvas: null, _ctx: null, _w: 0, _h: 0, _dpr: 2, _anim: 0, _loading: false, _btns: {},
 
   async onLoad() {
-    this.setData({ admin: auth.isAdmin() });
     await this._initCanvas();
     this._load();
   },
-  onShow() { this.setData({ admin: auth.isAdmin() }); this._startLoop(); },
+  onShow() { this._startLoop(); },
   onHide() { this._stopLoop(); },
   onUnload() { this._stopLoop(); },
 
@@ -168,9 +166,9 @@ Page({
     this._btn(ctx,rx-64,ry,60,36,'#fff','↻','#111827'); this._btns.refresh={x:rx-64,y:ry,w:60,h:36,a:'refresh'};
     this._btn(ctx,rx-136,ry,60,36,'#fff','🔍','#111827'); this._btns.search={x:rx-136,y:ry,w:60,h:36,a:'search'};
     const lx=14,ly=h-28;
-    ctx.fillStyle=this.data.admin?'rgba(15,23,42,.85)':'rgba(15,23,42,.18)';
-    ctx.beginPath(); ctx.arc(lx,ly,10,0,Math.PI*2); ctx.fill();
-    this._btns.login={x:lx-14,y:ly-14,w:28,h:28,a:'login'};
+    // "使用必看" 按钮
+    this._drawBtn(ctx, lx, ly-12, 72, 28, 'rgba(255,255,255,.92)', '使用必看', '#334155');
+    this._btns.info={x:lx,y:ly-12,w:72,h:28,a:'info'};
     ctx.restore();
   },
 
@@ -194,7 +192,7 @@ Page({
       const b=this._btns[k];
       if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){
         if(b.a==='enter')this.onEnter(); else if(b.a==='refresh')this.onRefresh();
-        else if(b.a==='search')this.onSearchTap(); else if(b.a==='login')this.onLoginTap();
+        else if(b.a==='search')this.onSearchTap(); else if(b.a==='info')this.onInfoTap();
         return;
       }
     }
@@ -216,14 +214,12 @@ Page({
     this._canvas=null;this._ctx=null;this._initCanvas().then(()=>this._load());
   },
   onSearchItemTap(e){wx.navigateTo({url:'/pages/book/book?zine='+encodeURIComponent(e.currentTarget.dataset.id)});},
-  onLoginTap(){this.setData({showLogin:true,loginUser:'',loginPass:''});},
-  onCancelLogin(){this.setData({showLogin:false});},
-  onUserInput(e){this.setData({loginUser:e.detail.value});},
-  onPassInput(e){this.setData({loginPass:e.detail.value});},
-  onLoginSubmit(){
-    if(auth.login(this.data.loginUser,this.data.loginPass)){
-      this.setData({showLogin:false,admin:true,status:'管理员登录成功'});setTimeout(()=>this.setData({status:''}),2000);
-    }else{this.setData({loginPass:'',status:'登录失败'});setTimeout(()=>this.setData({status:''}),2000);}
+  async onInfoTap(){
+    try {
+      const r = await api.getSetting('info_content');
+      const content = r || '暂无内容';
+      wx.showModal({ title:'使用必看', content, showCancel:false, confirmText:'关闭' });
+    } catch(e) { wx.showModal({ title:'使用必看', content:'加载失败', showCancel:false }); }
   },
   stopProp(){},
   onPullDownRefresh(){this._load().then(()=>wx.stopPullDownRefresh());}

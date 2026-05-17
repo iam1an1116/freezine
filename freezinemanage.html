@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>自由ZINE · 管理后台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh}
+.hidden{display:none!important}
+.container{max-width:900px;margin:0 auto;padding:24px}
+
+.login-card{max-width:400px;margin:80px auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.login-card h1{font-size:24px;font-weight:900;margin-bottom:24px;text-align:center}
+.login-card input{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;font-size:16px;margin-bottom:12px}
+.login-card button{width:100%;background:#0f172a;color:#fff;border:none;border-radius:10px;padding:12px;font-size:16px;font-weight:700;cursor:pointer}
+.login-card button:hover{background:#1e293b}
+.login-error{color:#ef4444;font-size:14px;margin-top:8px;text-align:center}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;background:#fff;border-bottom:1px solid #e2e8f0}
+header h1{font-size:20px;font-weight:900}
+header button{background:transparent;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600}
+header button:hover{background:#f8fafc}
+
+.tabs{display:flex;gap:8px;margin:20px 0}
+.tab{padding:8px 20px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:14px;font-weight:600}
+.tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+
+.zine-list{display:flex;flex-direction:column;gap:8px}
+.zine-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:10px;padding:12px 16px;border:1px solid #e2e8f0}
+.zine-row .title{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zine-row .meta{color:#64748b;font-size:13px;margin:0 16px;white-space:nowrap}
+.zine-row .del{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600}
+.zine-row .del:hover{background:#fee2e2}
+
+.info-edit{background:#fff;border-radius:10px;padding:20px;border:1px solid #e2e8f0}
+.info-edit textarea{width:100%;min-height:200px;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:15px;font-family:inherit;resize:vertical}
+.info-edit button{margin-top:12px;background:#0f172a;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;z-index:100}
+</style>
+</head>
+<body>
+<div id="loginPage" class="container">
+  <div class="login-card">
+    <h1>自由ZINE · 管理</h1>
+    <input id="userInput" type="text" placeholder="账号" autocomplete="username"/>
+    <input id="passInput" type="password" placeholder="密码" autocomplete="current-password"/>
+    <button onclick="doLogin()">登录</button>
+    <div id="loginError" class="login-error hidden"></div>
+  </div>
+</div>
+
+<div id="adminPage" class="hidden">
+  <header>
+    <h1>自由ZINE · 管理后台</h1>
+    <button onclick="doLogout()">退出</button>
+  </header>
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="zines" onclick="switchTab('zines')">ZINE 管理</button>
+      <button class="tab" data-tab="info" onclick="switchTab('info')">使用必看</button>
+    </div>
+    <div id="tabZines">
+      <div class="zine-list" id="zineList"></div>
+    </div>
+    <div id="tabInfo" class="hidden">
+      <div class="info-edit">
+        <textarea id="infoContent" placeholder="输入「使用必看」内容…"></textarea>
+        <button onclick="saveInfo()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+const SUPABASE_URL = 'https://bkrsxteqbdsgrddlskle.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrcnN4dGVxYmRzZ3JkZGxza2xlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjQ3ODQsImV4cCI6MjA5MDcwMDc4NH0.HvTyn83uO4q2Iwb4tF9cBxmnfn_pUxYznQmSwRRq9Aw';
+const ADMIN_USER = 'admin1an';
+const ADMIN_PASS = 'Yussawer_FZ1116';
+
+let zines = [];
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2000);
+}
+
+async function supabase(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', ...opts.headers },
+    ...opts
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function doLogin() {
+  const u = document.getElementById('userInput').value.trim();
+  const p = document.getElementById('passInput').value;
+  if (u === ADMIN_USER && p === ADMIN_PASS) {
+    localStorage.setItem('fz_admin', '1');
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('adminPage').classList.remove('hidden');
+    loadZines();
+  } else {
+    document.getElementById('loginError').classList.remove('hidden');
+    document.getElementById('loginError').textContent = '账号或密码错误';
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('fz_admin');
+  location.reload();
+}
+
+async function loadZines() {
+  try {
+    const data = await supabase('zines?select=id,title,created_at,page_count&order=created_at.desc&limit=100');
+    zines = data || [];
+    renderZines();
+  } catch(e) { showToast('加载失败: ' + e.message); }
+}
+
+function renderZines() {
+  const el = document.getElementById('zineList');
+  if (!zines.length) { el.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px;">暂无 ZINE</p>'; return; }
+  el.innerHTML = zines.map(z => `
+    <div class="zine-row">
+      <span class="title">${esc(z.title || '未命名')}</span>
+      <span class="meta">${z.page_count||0}页 · ${new Date(z.created_at).toLocaleDateString()}</span>
+      <button class="del" onclick="delZine('${z.id}')">删除</button>
+    </div>
+  `).join('');
+}
+
+async function delZine(id) {
+  if (!confirm('确定删除？不可撤销！')) return;
+  try {
+    await supabase(`zines?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+    zines = zines.filter(z => z.id !== id);
+    renderZines();
+    showToast('已删除');
+  } catch(e) { showToast('删除失败: ' + e.message); }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('tabZines').classList.toggle('hidden', tab !== 'zines');
+  document.getElementById('tabInfo').classList.toggle('hidden', tab !== 'info');
+  if (tab === 'info') loadInfo();
+}
+
+async function loadInfo() {
+  try {
+    const data = await supabase('settings?key=eq.info_content&limit=1');
+    if (data && data.length) document.getElementById('infoContent').value = data[0].value || '';
+  } catch(e) {}
+}
+
+async function saveInfo() {
+  const value = document.getElementById('infoContent').value;
+  try {
+    await supabase('settings', {
+      method: 'POST',
+      body: JSON.stringify({ key: 'info_content', value }),
+      headers: { Prefer: 'resolution=merge-duplicates' }
+    });
+    showToast('已保存');
+  } catch(e) { showToast('保存失败: ' + e.message); }
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// 自动登录
+if (localStorage.getItem('fz_admin') === '1') {
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('adminPage').classList.remove('hidden');
+  loadZines();
+}
+
+document.getElementById('userInput').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('passInput').focus(); });
+document.getElementById('passInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+</script>
+</body>
+</html>

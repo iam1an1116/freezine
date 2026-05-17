@@ -191,25 +191,16 @@
       <div id="viewerRail" class="viewer-rail" aria-label="电子书页面平铺阅览"></div>
     </div>
 
-    <!-- Admin login entry -->
     <div id="globalErrorBar" class="global-error-bar hidden" aria-live="polite"></div>
-    <button id="loginEntryBtn" class="login-entry" type="button" aria-label="管理员登录"></button>
 
-    <!-- Login modal -->
-    <div id="loginModal" class="login-modal hidden" role="dialog" aria-modal="true">
-      <div class="login-card">
-        <div class="login-title">管理员登录</div>
-        <div class="login-field">
-          <span class="login-label">账号</span>
-          <input id="loginUserInput" class="login-input" type="text" autocomplete="username" />
-        </div>
-        <div class="login-field">
-          <span class="login-label">密码</span>
-          <input id="loginPassInput" class="login-input" type="password" autocomplete="current-password" />
-        </div>
-        <div class="login-actions">
-          <button id="loginSubmitBtn" class="circle-btn primary" type="button">登录</button>
-          <button id="loginCancelBtn" class="circle-btn" type="button">取消</button>
+    <!-- 使用必看 -->
+    <button id="infoBtn" class="info-entry" type="button">使用必看</button>
+    <div id="infoModal" class="info-modal hidden" role="dialog" aria-modal="true">
+      <div class="info-card">
+        <div class="info-title">使用必看</div>
+        <div id="infoContent" class="info-content">加载中…</div>
+        <div class="info-actions">
+          <button id="infoCloseBtn" class="circle-btn" type="button">关闭</button>
         </div>
       </div>
     </div>

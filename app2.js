@@ -153,17 +153,18 @@
   }
 
 
-  // Admin (client-side only; not secure)
-  const ADMIN_USER = "Admin1an";
-  const ADMIN_PASS = "frezINE1an--2157";
-  const ADMIN_FLAG_KEY = "free-zine:adminAuthed";
-  function isAdminAuthed() {
-    return localStorage.getItem(ADMIN_FLAG_KEY) === "1";
-  }
+  // "使用必看"
+  const infoBtn = document.getElementById("infoBtn");
+  const infoModal = document.getElementById("infoModal");
+  const infoContent = document.getElementById("infoContent");
+  const infoCloseBtn = document.getElementById("infoCloseBtn");
 
-  function syncLoginEntryUI() {
-    if (!loginEntryBtn) return;
-    loginEntryBtn.classList.toggle("authed", isAdminAuthed());
+  async function loadInfoContent() {
+    try {
+      const res = await fetch("/api/settings/info_content");
+      const data = await res.json();
+      if (infoContent) infoContent.textContent = data.value || "";
+    } catch(e) { if (infoContent) infoContent.textContent = "加载失败"; }
   }
 
   // Viewer controls
@@ -171,15 +172,6 @@
   const viewerModeSingleBtn = document.getElementById("viewerModeSingleBtn");
   const viewerPrevPageBtn = document.getElementById("viewerPrevPageBtn");
   const viewerNextPageBtn = document.getElementById("viewerNextPageBtn");
-  const viewerDeleteBtn = document.getElementById("viewerDeleteBtn");
-
-  // Admin login UI
-  const loginEntryBtn = document.getElementById("loginEntryBtn");
-  const loginModal = document.getElementById("loginModal");
-  const loginUserInput = document.getElementById("loginUserInput");
-  const loginPassInput = document.getElementById("loginPassInput");
-  const loginSubmitBtn = document.getElementById("loginSubmitBtn");
-  const loginCancelBtn = document.getElementById("loginCancelBtn");
 
   // ---------- Utilities ----------
   function setStatus(msg) {
@@ -1218,7 +1210,6 @@
 
       viewerRail.classList.toggle("single-mode", isSingle);
 
-      viewerDeleteBtn.classList.toggle("hidden", !isAdminAuthed());
 
       viewerOverlay.tabIndex = 0;
       viewerOverlay.focus();
@@ -1718,7 +1709,7 @@
   viewerOverlay?.addEventListener("keydown", (e) => {
     if (viewerMode !== "single") return;
     if (viewerOverlay.classList.contains("hidden")) return;
-    if (loginModal && !loginModal.classList.contains("hidden")) return;
+    if (infoModal && !infoModal.classList.contains("hidden")) return;
     if (!currentViewingZineId) return;
     if (e.key === "ArrowLeft") {
       e.preventDefault();
@@ -1730,80 +1721,18 @@
     }
   });
 
-  // Admin login UI
-  function showLoginModal() {
-    if (!loginModal) return;
-    loginModal.classList.remove("hidden");
-    loginUserInput?.focus();
-  }
-  function hideLoginModal() {
-    if (!loginModal) return;
-    loginModal.classList.add("hidden");
-  }
-
-  loginEntryBtn?.addEventListener("click", () => {
-    showLoginModal();
+  // "使用必看"
+  infoBtn?.addEventListener("click", () => {
+    if (!infoModal) return;
+    loadInfoContent();
+    infoModal.classList.remove("hidden");
   });
-  loginCancelBtn?.addEventListener("click", () => {
-    hideLoginModal();
+  infoCloseBtn?.addEventListener("click", () => {
+    if (!infoModal) return;
+    infoModal.classList.add("hidden");
   });
-
-  loginModal?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      loginSubmitBtn?.click();
-    }
-  });
-
-  loginSubmitBtn?.addEventListener("click", () => {
-    const u = String(loginUserInput?.value || "");
-    const p = String(loginPassInput?.value || "");
-    if (u === ADMIN_USER && p === ADMIN_PASS) {
-      localStorage.setItem(ADMIN_FLAG_KEY, "1");
-      hideLoginModal();
-      viewerDeleteBtn?.classList.toggle("hidden", !isAdminAuthed());
-      syncLoginEntryUI();
-      setStatus("管理员登录成功");
-    } else {
-      setStatus("管理员登录失败");
-      if (loginPassInput) loginPassInput.value = "";
-      loginPassInput?.focus();
-    }
-  });
-
-  // Delete zine (admin only)
-  async function deleteZineCompletely(zineId) {
-    if (!zineId) return false;
-    if (!isAdminAuthed()) return false;
-
-    const ok = window.confirm("确定删除此电子书？此操作不可撤销。");
-    if (!ok) return false;
-
-    try {
-      await apiJSON(`/api/zines/${encodeURIComponent(zineId)}`, { method: "DELETE" });
-    } catch (e) {
-      console.error(e);
-      return false;
-    }
-
-    // Update index list
-    const ids = readStoredZineIds().filter((id) => id !== zineId);
-    localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(ids));
-
-    // Update in-memory & UI icons
-    zines = zines.filter((z) => z.id !== zineId);
-    const iconEl = iconsWall?.querySelector(`[data-zine-id="${zineId}"]`);
-    iconEl?.remove();
-
-    if (currentViewingZineId === zineId) closeViewer();
-    if (window.location.hash.includes("zine=")) {
-      history.replaceState(null, "", window.location.pathname + window.location.search);
-    }
-    return true;
-  }
-
-  viewerDeleteBtn?.addEventListener("click", async () => {
-    await deleteZineCompletely(currentViewingZineId);
+  infoModal?.addEventListener("click", (e) => {
+    if (e.target === infoModal) infoModal.classList.add("hidden");
   });
 
   viewerShareBtn.addEventListener("click", async () => {
@@ -1927,8 +1856,7 @@
   resetDraft();
   editorPanel.classList.add("hidden");
   setupPanel.classList.remove("hidden");
-  syncLoginEntryUI();
-  syncCanvasBorderRadios();
+    syncCanvasBorderRadios();
 
   // Open a specific ZINE from share link.
   const hash = window.location.hash || "";

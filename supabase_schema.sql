@@ -86,3 +86,24 @@ on storage.objects for delete
 to anon, authenticated
 using (bucket_id = 'zines');
 
+-- 4) settings table
+create table if not exists public.settings (
+  key text primary key,
+  value text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+insert into public.settings (key, value) values ('info_content', '欢迎使用自由ZINE！\n\n你可以在这里创作电子书。\n点击底部按钮开始制作。')
+on conflict (key) do nothing;
+
+alter table public.settings enable row level security;
+
+drop policy if exists "settings_select_all" on public.settings;
+create policy "settings_select_all" on public.settings for select to anon, authenticated using (true);
+
+drop policy if exists "settings_update_all" on public.settings;
+create policy "settings_update_all" on public.settings for update to anon, authenticated using (true) with check (true);
+
+drop policy if exists "settings_insert_all" on public.settings;
+create policy "settings_insert_all" on public.settings for insert to anon, authenticated with check (true);
+

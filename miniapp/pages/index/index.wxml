@@ -26,23 +26,5 @@
     </view>
   </view>
 
-  <view class="login-modal {{showLogin ? '' : 'hidden'}}" catchtap="onCancelLogin">
-    <view class="login-card" catchtap="stopProp">
-      <view class="login-title">管理员登录</view>
-      <view class="login-field">
-        <text class="login-label">账号</text>
-        <input class="login-input" value="{{loginUser}}" bindinput="onUserInput" placeholder="账号" />
-      </view>
-      <view class="login-field">
-        <text class="login-label">密码</text>
-        <input class="login-input" value="{{loginPass}}" bindinput="onPassInput" password placeholder="密码" />
-      </view>
-      <view class="login-actions">
-        <button class="circle-btn primary" bindtap="onLoginSubmit">登录</button>
-        <button class="circle-btn" bindtap="onCancelLogin">取消</button>
-      </view>
-    </view>
-  </view>
-
   <view class="status-bar" wx:if="{{status}}">{{status}}</view>
 </view>

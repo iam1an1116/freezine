@@ -125,3 +125,27 @@ if __name__ == "__main__":
   port = int(os.environ.get("PORT", "8787"))
   app.run(host="0.0.0.0", port=port, debug=True)
 
+
+
+@app.get("/api/settings/<key>")
+def get_setting(key):
+  import json
+  fp = DATA_DIR / "settings" / f"{key}.json"
+  if not fp.exists():
+    return jsonify({"value": ""})
+  try:
+    return jsonify({"value": json.loads(fp.read_text("utf-8")).get("value", "")})
+  except Exception:
+    return jsonify({"value": ""})
+
+
+@app.put("/api/settings/<key>")
+def put_setting(key):
+  import json
+  body = request.get_json(silent=True)
+  if not isinstance(body, dict):
+    return jsonify({"error": "bad_body"}), 400
+  (DATA_DIR / "settings").mkdir(parents=True, exist_ok=True)
+  fp = DATA_DIR / "settings" / f"{key}.json"
+  write_json_atomic(fp, {"key": key, "value": body.get("value", "")})
+  return jsonify({"ok": True})

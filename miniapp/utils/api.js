@@ -195,4 +195,10 @@ async function uploadImage(dataUrl, zineId, fileName) {
   return { ok: true, publicUrl, path: key };
 }
 
-module.exports = { listZines, searchZines, getZine, saveZine, deleteZine, uploadImage };
+async function getSetting(key) {
+  const r = await _request({ url: `${SUPABASE_URL}/rest/v1/settings?select=value&key=eq.${encodeURIComponent(key)}&limit=1`, method:'GET' });
+  const rows = r.data || [];
+  return rows.length ? rows[0].value : '';
+}
+
+module.exports = { listZines, searchZines, getZine, saveZine, deleteZine, uploadImage, getSetting };
