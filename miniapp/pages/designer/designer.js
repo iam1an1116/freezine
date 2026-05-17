@@ -177,17 +177,9 @@ Page({
         this.engine.dirty = true; this.engine.render();
       });
     } else {
-      // 普通拖拽：用 rawX/rawY 累加，吸附显示，不抖
-      const gs = this.data.gridSize || 20;
       this._getRect(rect => {
         const s = this.pageW / Math.max(1, rect.width);
         this.engine.moveActive(dx*s, dy*s);
-        // 吸附（不改变 lx/ly 基准，仅修正对象位置）
-        const obj = this.engine.getActive();
-        if (obj) {
-          obj.left = Math.round(obj.left / gs) * gs;
-          obj.top = Math.round(obj.top / gs) * gs;
-        }
       });
       this._dragData.lx = t.x; this._dragData.ly = t.y;
     }

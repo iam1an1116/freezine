@@ -985,64 +985,73 @@
     }
   }
 
-  // Random placement state
-  let placedIconRects = [];
+  // 物理引擎状态
+  let physicsBodies = [];
+  let physicsAnimId = 0;
 
-  function _getObstacleRects() {
-    const rects = [];
-    const enterBtn = document.getElementById("homeEnterBtn");
-    if (enterBtn) {
-      const r = enterBtn.getBoundingClientRect();
-      rects.push({ left: r.left - 24, top: r.top - 24, right: r.right + 24, bottom: r.bottom + 24 });
+  function _startPhysics() {
+    if (physicsAnimId) return;
+    function loop() {
+      _physicsStep();
+      _physicsRender();
+      physicsAnimId = requestAnimationFrame(loop);
     }
-    const loginBtn = document.getElementById("loginEntryBtn");
-    if (loginBtn) {
-      const r = loginBtn.getBoundingClientRect();
-      rects.push({ left: r.left - 12, top: r.top - 12, right: r.right + 12, bottom: r.bottom + 12 });
-    }
-    return rects;
+    loop();
   }
 
-  function _rectsOverlap(a, b) {
-    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  function _stopPhysics() {
+    if (physicsAnimId) { cancelAnimationFrame(physicsAnimId); physicsAnimId = 0; }
   }
 
-  function _findRandomPlacement(elW, elH) {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const obstacles = _getObstacleRects();
-    const pad = 16;
+  function _physicsStep() {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const repellers = [
+      { x: vw/2, y: vh/2, r: 110 },
+      { x: 20, y: vh-20, r: 45 },
+      { x: vw-60, y: 40, r: 100 }
+    ];
 
-    for (let attempt = 0; attempt < 300; attempt++) {
-      const left = pad + Math.random() * Math.max(0, vw - elW - pad * 2);
-      const top = pad + Math.random() * Math.max(0, vh - elH - pad * 2);
+    for (let i = 0; i < physicsBodies.length; i++) {
+      const a = physicsBodies[i];
+      const ax = a.x + a.w/2, ay = a.y + a.h/2;
 
-      const candidate = {
-        left: left - pad,
-        top: top - pad,
-        right: left + elW + pad,
-        bottom: top + elH + pad,
-      };
+      a.vx += (Math.random() - 0.5) * 0.03;
+      a.vy += (Math.random() - 0.5) * 0.03;
+      a.vx *= 0.996; a.vy *= 0.996;
 
-      let overlaps = false;
-      for (const obs of obstacles) {
-        if (_rectsOverlap(candidate, obs)) { overlaps = true; break; }
+      for (const rp of repellers) {
+        const dx = ax - rp.x, dy = ay - rp.y;
+        const d = Math.sqrt(dx*dx + dy*dy) || 1;
+        if (d < rp.r) { const f = (rp.r - d)/rp.r * 0.4; a.vx += dx/d*f; a.vy += dy/d*f; }
       }
-      if (overlaps) continue;
 
-      for (const placed of placedIconRects) {
-        if (_rectsOverlap(candidate, placed)) { overlaps = true; break; }
+      for (let j = i+1; j < physicsBodies.length; j++) {
+        const b = physicsBodies[j];
+        const bx = b.x + b.w/2, by = b.y + b.h/2;
+        const dx = ax - bx, dy = ay - by;
+        const d = Math.sqrt(dx*dx + dy*dy) || 1;
+        const md = (a.w + b.w)/2;
+        if (d < md) { const f = (md-d)/md * 0.25; a.vx += dx/d*f; a.vy += dy/d*f; b.vx -= dx/d*f; b.vy -= dy/d*f; }
       }
-      if (overlaps) continue;
 
-      placedIconRects.push(candidate);
-      return { left, top };
+      if (a.x < 4) { a.x = 4; a.vx = Math.abs(a.vx)*.5; }
+      if (a.y < 4) { a.y = 4; a.vy = Math.abs(a.vy)*.5; }
+      if (a.x + a.w > vw-4) { a.x = vw-4-a.w; a.vx = -Math.abs(a.vx)*.5; }
+      if (a.y + a.h > vh-4) { a.y = vh-4-a.h; a.vy = -Math.abs(a.vy)*.5; }
+
+      const s = Math.sqrt(a.vx*a.vx + a.vy*a.vy);
+      if (s > 1.2) { a.vx *= 1.2/s; a.vy *= 1.2/s; }
+      a.x += a.vx; a.y += a.vy;
     }
+  }
 
-    // Fallback: place at a random position anyway
-    const left = pad + Math.random() * Math.max(0, vw - elW - pad * 2);
-    const top = pad + Math.random() * Math.max(0, vh - elH - pad * 2);
-    return { left, top };
+  function _physicsRender() {
+    for (const b of physicsBodies) {
+      if (b.el) {
+        b.el.style.left = Math.round(b.x) + 'px';
+        b.el.style.top = Math.round(b.y) + 'px';
+      }
+    }
   }
 
   function addIconToHome(zine) {
@@ -1059,21 +1068,16 @@
     const aw = zine.aspect && zine.aspect.w ? Number(zine.aspect.w) : 1;
     const ah = zine.aspect && zine.aspect.h ? Number(zine.aspect.h) : 1;
     const ar = ah > 0 ? aw / ah : 1;
-    const maxSide = 112;
-    let bw = maxSide;
-    let bh = maxSide;
-    if (ar >= 1) {
-      bh = Math.max(56, Math.round(maxSide / ar));
-    } else {
-      bw = Math.max(56, Math.round(maxSide * ar));
-    }
-    btn.style.width = `${bw}px`;
-    btn.style.height = `${bh}px`;
+    const maxSide = 80;
+    let bw = maxSide, bh = maxSide;
+    if (ar >= 1) bh = Math.max(44, Math.round(maxSide / ar));
+    else bw = Math.max(44, Math.round(maxSide * ar));
+    btn.style.width = bw + 'px';
+    btn.style.height = bh + 'px';
 
     const img = document.createElement("img");
     img.alt = "自由ZINE 图标";
     img.src = zine.iconDataURL;
-
     btn.appendChild(img);
     item.appendChild(btn);
 
@@ -1085,35 +1089,29 @@
     btn.addEventListener("click", () => {
       window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
     });
-    btn.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        window.open(`./book.html#zine=${encodeURIComponent(zine.id)}`, "_blank", "noopener,noreferrer");
-      }
-    });
 
-    // Append hidden first to measure
-    item.style.visibility = "hidden";
-    item.style.left = "0px";
-    item.style.top = "0px";
     iconsWall.appendChild(item);
 
-    // Measure and place
-    const elW = item.offsetWidth || bw + 20;
-    const elH = item.offsetHeight || bh + 40;
-    const pos = _findRandomPlacement(elW, elH);
-    item.style.left = `${pos.left}px`;
-    item.style.top = `${pos.top}px`;
-    item.style.visibility = "";
+    // 物理刚体
+    physicsBodies.push({
+      el: item, id: zine.id,
+      x: 20 + Math.random()*(window.innerWidth-140),
+      y: 20 + Math.random()*(window.innerHeight-200),
+      vx: (Math.random()-.5)*.25, vy: (Math.random()-.5)*.25,
+      w: bw+12, h: bh+36
+    });
   }
 
   function clearHomeIcons() {
     iconsWall.innerHTML = "";
-    placedIconRects = [];
+    physicsBodies = [];
+    _stopPhysics();
   }
 
   async function restoreHomeIconsFromStorage() {
     if (!iconsWall) return;
     if (currentViewingZineId) return;
+    clearHomeIcons();
     setAppLoading(true, "加载书架…");
     try {
       const data = await apiJSON("/api/zines", { method: "GET" });
@@ -1143,6 +1141,7 @@
           if (zines.length >= 60) break;
         }
       }
+      _startPhysics();
     } catch (e) {
       // On API failure, keep existing icons and show cached ones.
       const ids = readStoredZineIds();
@@ -1158,6 +1157,7 @@
         }
       }
       showRuntimeError(e);
+      _startPhysics();
     } finally {
       setAppLoading(false);
     }
